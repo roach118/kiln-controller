@@ -9,6 +9,7 @@ class OvenWatcher(threading.Thread):
         self.started = None
         self.recording = False
         self.observers = []
+        self.observers_lock = threading.Lock()
         threading.Thread.__init__(self)
         self.daemon = True
         self.oven = oven
@@ -73,19 +74,26 @@ class OvenWatcher(threading.Thread):
             observer.send(backlog_json)
         except:
             log.error("Could not send backlog to new observer")
-        
-        self.observers.append(observer)
+
+        with self.observers_lock:
+            self.observers.append(observer)
 
     def notify_all(self,message):
         message_json = json.dumps(message)
         log.debug("sending to %d clients: %s"%(len(self.observers),message_json))
 
-        for wsock in self.observers:
+        with self.observers_lock:
+            observers = list(self.observers)
+        for wsock in observers:
             if wsock:
                 try:
                     wsock.send(message_json)
                 except:
                     log.error("could not write to socket %s"%wsock)
-                    self.observers.remove(wsock)
+                    with self.observers_lock:
+                        if wsock in self.observers:
+                            self.observers.remove(wsock)
             else:
-                self.observers.remove(wsock)
+                with self.observers_lock:
+                    if wsock in self.observers:
+                        self.observers.remove(wsock)

@@ -13,6 +13,7 @@ import geventwebsocket
 from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
 from geventwebsocket import WebSocketError
+from bottle import abort
 
 # try/except removed here on purpose so folks can see why things break
 import config
@@ -159,6 +160,9 @@ def handle_control():
                     if profile_obj:
                         profile_json = json.dumps(profile_obj)
                         profile = Profile(profile_json)
+                    else:
+                        log.error("RUN command missing profile")
+                        continue
                     oven.run_profile(profile)
                     ovenWatcher.record(profile)
                 elif msgdict.get("cmd") == "SIMULATE":
