@@ -58,7 +58,7 @@ if(config.max31856):
     print("thermocouple: adafruit max31856")
     sensor = adafruit_max31856.MAX31856(spi, cs)
 
-print("Degrees displayed in %s\n" % (config.temp_scale))
+print("Degrees displayed in C\n")
 
 temp = 0
 while(True):
@@ -66,9 +66,6 @@ while(True):
     try:
         temp = sensor.temperature
         scale = "C"
-        if config.temp_scale == "f":
-            temp = temp * (9/5) + 32 
-            scale ="F"
         print("%s %0.2f%s" %(datetime.datetime.now(),temp,scale))
     except Exception as error:
         print("error: " , error)

@@ -14,6 +14,36 @@ var temp_scale_display = "C";
 var kwh_rate = 0.26;
 var currency_type = "EUR";
 
+function cToF(temp) {
+    return (temp * 9 / 5) + 32;
+}
+
+function fToC(temp) {
+    return (temp - 32) * 5 / 9;
+}
+
+function cDeltaToF(temp) {
+    return temp * 9 / 5;
+}
+
+function toDisplayTemp(temp) {
+    return (temp_scale == "f") ? cToF(temp) : temp;
+}
+
+function toDisplayDelta(temp) {
+    return (temp_scale == "f") ? cDeltaToF(temp) : temp;
+}
+
+function toCTemp(temp) {
+    return (temp_scale == "f") ? fToC(temp) : temp;
+}
+
+function profileDataForDisplay(profile) {
+    return profile.data.map(function(point) {
+        return [point[0], toDisplayTemp(point[1])];
+    });
+}
+
 var protocol = 'ws:';
 if (window.location.protocol == 'https:') {
     protocol = 'wss:';
@@ -57,7 +87,7 @@ function updateProfile(id)
     $('#sel_prof').html(profiles[id].name);
     $('#sel_prof_eta').html(job_time);
     $('#sel_prof_cost').html(kwh + ' kWh ('+ currency_type +': '+ cost +')');
-    graph.profile.data = profiles[id].data;
+    graph.profile.data = profileDataForDisplay(profiles[id]);
     graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ] , getOptions());
 }
 
@@ -337,7 +367,7 @@ function saveProfile()
     {
         if(rawdata[i][0] > last)
         {
-          data.push([rawdata[i][0], rawdata[i][1]]);
+          data.push([rawdata[i][0], toCTemp(rawdata[i][1])]);
         }
         else
         {
@@ -358,7 +388,7 @@ function saveProfile()
         last = rawdata[i][0];
     }
 
-    var profile = { "type": "profile", "data": data, "name": name, "temp_units": temp_scale }
+    var profile = { "type": "profile", "data": data, "name": name }
     var put = { "cmd": "PUT", "profile": profile }
 
     var put_cmd = JSON.stringify(put);
@@ -518,7 +548,7 @@ $(document).ready(function()
                 }
 
                 $.each(x.log, function(i,v) {
-                    graph.live.data.push([v.runtime, v.temperature]);
+                    graph.live.data.push([v.runtime, toDisplayTemp(v.temperature)]);
                     graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ] , getOptions());
                 });
             }
@@ -551,7 +581,7 @@ $(document).ready(function()
                     $("#nav_start").hide();
                     $("#nav_stop").show();
 
-                    graph.live.data.push([x.runtime, x.temperature]);
+                    graph.live.data.push([x.runtime, toDisplayTemp(x.temperature)]);
                     graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ] , getOptions());
 
                     left = parseInt(x.totaltime-x.runtime);
@@ -559,7 +589,7 @@ $(document).ready(function()
 
                     updateProgress(parseFloat(x.runtime)/parseFloat(x.totaltime)*100);
                     $('#state').html('<span class="glyphicon glyphicon-time" style="font-size: 22px; font-weight: normal"></span><span style="font-family: Digi; font-size: 40px;">' + eta + '</span>');
-                    $('#target_temp').html(parseInt(x.target));
+                    $('#target_temp').html(parseInt(toDisplayTemp(x.target)));
                     $('#cost').html(x.currency_type + parseFloat(x.cost).toFixed(2));
                   
 
@@ -572,8 +602,8 @@ $(document).ready(function()
                     $('#state').html('<p class="ds-text">'+state+'</p>');
                 }
 
-                $('#act_temp').html(parseInt(x.temperature));
-                heat_rate = parseInt(x.heat_rate)
+                $('#act_temp').html(parseInt(toDisplayTemp(x.temperature)));
+                heat_rate = parseInt(toDisplayDelta(x.heat_rate))
                 if (heat_rate > 9999) { heat_rate = 9999; }
                 if (heat_rate < -9999) { heat_rate = -9999; }
                 $('#heat_rate').html(heat_rate);
@@ -582,7 +612,7 @@ $(document).ready(function()
                     }
                 if (x.cool > 0.5) { $('#cool').addClass("ds-led-cool-active"); } else { $('#cool').removeClass("ds-led-cool-active"); }
                 if (x.air > 0.5) { $('#air').addClass("ds-led-air-active"); } else { $('#air').removeClass("ds-led-air-active"); }
-                if (x.temperature > hazardTemp()) { $('#hazard').addClass("ds-led-hazard-active"); } else { $('#hazard').removeClass("ds-led-hazard-active"); }
+                if (toDisplayTemp(x.temperature) > hazardTemp()) { $('#hazard').addClass("ds-led-hazard-active"); } else { $('#hazard').removeClass("ds-led-hazard-active"); }
                 if ((x.door == "OPEN") || (x.door == "UNKNOWN")) { $('#door').addClass("ds-led-door-open"); } else { $('#door').removeClass("ds-led-door-open"); }
 
                 state_last = state;
@@ -613,6 +643,10 @@ $(document).ready(function()
             $('#act_temp_scale').html('º'+temp_scale_display);
             $('#target_temp_scale').html('º'+temp_scale_display);
             $('#heat_rate_temp_scale').html('º'+temp_scale_display);
+            if (profiles.length > 0) {
+                updateProfile(selected_profile);
+                updateProfileTable();
+            }
 
             switch(time_scale_profile){
                 case "s":
@@ -641,7 +675,7 @@ $(document).ready(function()
             console.log ("control socket has been opened")
             console.log (e.data);
             x = JSON.parse(e.data);
-            graph.live.data.push([x.runtime, x.temperature]);
+            graph.live.data.push([x.runtime, toDisplayTemp(x.temperature)]);
             graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ] , getOptions());
 
         }
