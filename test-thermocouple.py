@@ -33,27 +33,27 @@ spi = None
 if(hasattr(config,'spi_sclk') and
    hasattr(config,'spi_mosi') and
    hasattr(config,'spi_miso')):
-    spi = bitbangio.SPI(CONFIG.spi_sclk, CONFIG.spi_mosi, CONFIG.spi_miso)
+    spi = bitbangio.SPI(CONFIG.hardware.spi_sclk, CONFIG.hardware.spi_mosi, CONFIG.hardware.spi_miso)
     print("Software SPI selected for reading thermocouple")
     print("SPI configured as:\n")
-    print("    config.spi_sclk = %s BCM pin" % (CONFIG.spi_sclk))
-    print("    config.spi_mosi = %s BCM pin" % (CONFIG.spi_mosi))
-    print("    config.spi_miso = %s BCM pin" % (CONFIG.spi_miso))
-    print("    config.spi_cs   = %s BCM pin\n" % (CONFIG.spi_cs))
+    print("    config.spi_sclk = %s BCM pin" % (CONFIG.hardware.spi_sclk))
+    print("    config.spi_mosi = %s BCM pin" % (CONFIG.hardware.spi_mosi))
+    print("    config.spi_miso = %s BCM pin" % (CONFIG.hardware.spi_miso))
+    print("    config.spi_cs   = %s BCM pin\n" % (CONFIG.hardware.spi_cs))
 else:
     spi = board.SPI();
     print("Hardware SPI selected for reading thermocouple")
 
-cs = DigitalInOut(CONFIG.spi_cs)
+cs = DigitalInOut(CONFIG.hardware.spi_cs)
 cs.switch_to_output(value=True)
 sensor = None
 
 print("\nboard: %s" % (board.board_id))
-if(CONFIG.max31855):
+if(CONFIG.thermocouple.max31855):
     import adafruit_max31855
     print("thermocouple: adafruit max31855")
     sensor = adafruit_max31855.MAX31855(spi, cs)
-if(CONFIG.max31856):
+if(CONFIG.thermocouple.max31856):
     import adafruit_max31856
     print("thermocouple: adafruit max31856")
     sensor = adafruit_max31856.MAX31856(spi, cs)

@@ -1,14 +1,14 @@
-[logging]
+[logging] # CONFIG.logging
 # Python logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
 level = "INFO"
 # Standard logging format string.
 format = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
-[server]
+[server] # CONFIG.server
 # Web UI and websocket port.
 listening_port = 8081
 
-[cost]
+[cost] # CONFIG.cost
 # Cost per kWh for energy estimates.
 kwh_rate = 0.1319
 # Total kiln element power draw in kilowatts.
@@ -16,7 +16,7 @@ kw_elements = 9.460
 # Currency symbol for display.
 currency_type = "$"
 
-[hardware]
+[hardware] # CONFIG.hardware
 # SPI pins for software SPI (bit-banged). Use board pin names (e.g., "D23").
 # If these are omitted, hardware SPI is used.
 spi_sclk = "D17"
@@ -28,7 +28,7 @@ gpio_heat = "D23"
 # If true, invert the relay output state.
 gpio_heat_invert = false
 
-[thermocouple]
+[thermocouple] # CONFIG.thermocouple
 # Select which MAX3185x breakout board is attached ("max31855" or "max31856").
 model = "max31855"
 # Thermocouple type for MAX31856 (B, E, J, K, N, R, S, T).
@@ -49,7 +49,7 @@ ignore_tc_unknown_error = false
 # Ignore all thermocouple errors and keep running (use with care).
 ignore_tc_too_many_errors = false
 
-[run]
+[run] # CONFIG.run
 # If kiln is already hot, skip ahead to the first matching point in the profile.
 seek_start = true
 # Duty cycle in seconds.
@@ -79,13 +79,13 @@ throttle_percent = 20
 # Deprecated but kept for compatibility (windup is handled automatically).
 stop_integral_windup = true
 
-[pid]
+[pid] # CONFIG.pid
 # PID tuning parameters.
 pid_kp = 10
 pid_ki = 80
 pid_kd = 220.83497910261562
 
-[simulation]
+[simulation] # CONFIG.simulation
 # Run in simulated mode (no hardware required).
 simulate = true
 # Ambient/environment temperature in degrees C.
@@ -107,7 +107,7 @@ sim_R_ho_air = 0.05
 # Simulation speed multiplier (1 = real time).
 sim_speedup_factor = 1
 
-[restart]
+[restart] # CONFIG.restart
 # Enable automatic restart after power loss.
 automatic_restarts = true
 # Max minutes since power outage to allow restart.
@@ -115,11 +115,11 @@ automatic_restart_window = 15
 # State file path for restarts (relative to config.toml by default).
 automatic_restart_state_file = "state.json"
 
-[profiles]
+[profiles] # CONFIG.profiles
 # Directory containing profile JSON files (relative to config.toml by default).
 kiln_profiles_directory = "storage/profiles"
 
-[security]
+[security] # CONFIG.security
 # PIN required to start or shut down the kiln (numeric value).
 # To allow shutdown, the service user must be able to run:
 #   sudo -n shutdown -h +1 "kiln-controller shutdown"

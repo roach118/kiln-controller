@@ -19,20 +19,20 @@ from bottle import abort
 # try/except removed here on purpose so folks can see why things break
 from config import CONFIG
 
-logging.basicConfig(level=CONFIG.log_level, format=CONFIG.log_format)
+logging.basicConfig(level=CONFIG.logging.level, format=CONFIG.logging.format)
 log = logging.getLogger("kiln-controller")
 log.info("Starting kiln controller")
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, script_dir + '/lib/')
-profile_path = CONFIG.kiln_profiles_directory
+profile_path = CONFIG.profiles.kiln_profiles_directory
 
 from oven import SimulatedOven, RealOven, Profile
 from ovenWatcher import OvenWatcher
 
 app = bottle.Bottle()
 
-if CONFIG.simulate == True:
+if CONFIG.simulation.simulate == True:
     log.info("this is a simulation")
     oven = SimulatedOven()
 else:
@@ -160,7 +160,7 @@ def get_websocket_from_request():
 
 def validate_pin(pin):
     try:
-        return int(pin) == int(CONFIG.security_pin)
+        return int(pin) == int(CONFIG.security.pin)
     except (TypeError, ValueError):
         return False
 
@@ -181,18 +181,22 @@ def request_shutdown():
 
 def can_shutdown():
     try:
-        subprocess.run(
-            ["sudo", "-n", "-l", "shutdown"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        return True, None
+        candidates = ["shutdown", "/sbin/shutdown", "/usr/sbin/shutdown"]
+        last_err = None
+        for cmd in candidates:
+            try:
+                subprocess.run(
+                    ["sudo", "-n", "-l", cmd],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                return True, None
+            except subprocess.CalledProcessError as exc:
+                last_err = exc.stderr.strip() or exc.stdout.strip() or "shutdown not permitted"
+        return False, last_err or "shutdown not permitted"
     except FileNotFoundError:
         return False, "sudo not available"
-    except subprocess.CalledProcessError as exc:
-        err = exc.stderr.strip() or exc.stdout.strip() or "shutdown not permitted"
-        return False, err
 
 
 @app.route('/control')
@@ -369,15 +373,15 @@ def delete_profile(profile):
     return True
 
 def get_config():
-    return json.dumps({"temp_scale": CONFIG.temp_scale,
-        "time_scale_slope": CONFIG.time_scale_slope,
-        "time_scale_profile": CONFIG.time_scale_profile,
-        "kwh_rate": CONFIG.kwh_rate,
-        "currency_type": CONFIG.currency_type})    
+    return json.dumps({"temp_scale": CONFIG.run.temp_scale,
+        "time_scale_slope": CONFIG.run.time_scale_slope,
+        "time_scale_profile": CONFIG.run.time_scale_profile,
+        "kwh_rate": CONFIG.cost.kwh_rate,
+        "currency_type": CONFIG.cost.currency_type})    
 
 def main():
     ip = "0.0.0.0"
-    port = CONFIG.listening_port
+    port = CONFIG.server.listening_port
     log.info("listening on %s:%d" % (ip, port))
 
     server = WSGIServer((ip, port), app,

@@ -29,14 +29,14 @@ except NotImplementedError:
 # on your configured pin change.
 ########################################################################
 
-heater = digitalio.DigitalInOut(CONFIG.gpio_heat)
+heater = digitalio.DigitalInOut(CONFIG.hardware.gpio_heat)
 heater.direction = digitalio.Direction.OUTPUT
-off = CONFIG.gpio_heat_invert
+off = CONFIG.hardware.gpio_heat_invert
 on = not off
 
 print("\nboard: %s" % (board.board_id))
-print("heater configured as config.gpio_heat = %s BCM pin\n" % (CONFIG.gpio_heat))
-print("heater output pin configured as invert = %r\n" % (CONFIG.gpio_heat_invert))
+print("heater configured as config.gpio_heat = %s BCM pin\n" % (CONFIG.hardware.gpio_heat))
+print("heater output pin configured as invert = %r\n" % (CONFIG.hardware.gpio_heat_invert))
 
 while True:
     heater.value = on
