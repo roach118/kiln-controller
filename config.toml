@@ -118,3 +118,10 @@ automatic_restart_state_file = "state.json"
 [profiles]
 # Directory containing profile JSON files (relative to config.toml by default).
 kiln_profiles_directory = "storage/profiles"
+
+[security]
+# PIN required to start or shut down the kiln (numeric value).
+# To allow shutdown, the service user must be able to run:
+#   sudo -n shutdown -h +1 "kiln-controller shutdown"
+# without a password. Configure sudoers with NOPASSWD for shutdown.
+pin = 1234

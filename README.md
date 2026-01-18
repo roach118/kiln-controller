@@ -94,6 +94,7 @@ All parameters are defined in config.toml. You need to read through config.toml 
 | temp_scale | f | Unit to display (f for Fahrenheit, c for Celsius). All temperature values in config are in Celsius. |
 | pid parameters | | Used to tune your kiln. See PID Tuning. |
 | simulate | True | Simulate a kiln. Used to test the software by new users so they can check out the features. |
+| security.pin | 1234 | Required PIN for starting a run or shutting down the controller. |
  
 
 ## Testing

@@ -56,6 +56,16 @@ def _log_level(value):
     return level
 
 
+def _pin_value(value):
+    if value is None:
+        raise ValueError("Missing security.pin in config.toml")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    raise ValueError("security.pin must be a numeric value")
+
+
 def _thermocouple_type(value):
     if not value:
         return None
@@ -68,10 +78,11 @@ def _thermocouple_type(value):
 
 CONFIG = SimpleNamespace()
 
+__all__ = ["CONFIG"]
+
 
 def _set(key, value):
     setattr(CONFIG, key, value)
-    globals()[key] = value
 
 
 def _load_config():
@@ -88,6 +99,7 @@ def _load_config():
     simulation_cfg = data.get("simulation", {})
     restart_cfg = data.get("restart", {})
     profiles_cfg = data.get("profiles", {})
+    security_cfg = data.get("security", {})
 
     _set("log_level", _log_level(logging_cfg.get("level", "INFO")))
     _set("log_format", logging_cfg.get("format", "%(asctime)s %(levelname)s %(name)s: %(message)s"))
@@ -167,6 +179,28 @@ def _load_config():
         "kiln_profiles_directory",
         _resolve_path(base_dir, profiles_cfg.get("kiln_profiles_directory", "storage/profiles")),
     )
+
+    _set("security_pin", _pin_value(security_cfg.get("pin")))
+
+    _validate_config()
+
+
+def _validate_config():
+    missing = []
+    if CONFIG.max31855 is False and CONFIG.max31856 is False:
+        missing.append("thermocouple.model")
+    if CONFIG.gpio_heat is None:
+        missing.append("hardware.gpio_heat")
+    if CONFIG.spi_cs is None and (CONFIG.spi_sclk or CONFIG.spi_miso or CONFIG.spi_mosi):
+        missing.append("hardware.spi_cs")
+    if CONFIG.temperature_average_samples < 1:
+        raise ValueError("run.temperature_average_samples must be >= 1")
+    if CONFIG.pid_control_window <= 0:
+        raise ValueError("run.pid_control_window must be > 0")
+    if CONFIG.throttle_percent < 0 or CONFIG.throttle_percent > 100:
+        raise ValueError("run.throttle_percent must be between 0 and 100")
+    if missing:
+        raise ValueError("Missing required config values: " + ", ".join(missing))
 
 
 _load_config()

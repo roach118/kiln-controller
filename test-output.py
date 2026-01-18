@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import config
+from config import CONFIG
 import adafruit_max31855
 import digitalio
 import time
@@ -29,14 +29,14 @@ except NotImplementedError:
 # on your configured pin change.
 ########################################################################
 
-heater = digitalio.DigitalInOut(config.gpio_heat)
+heater = digitalio.DigitalInOut(CONFIG.gpio_heat)
 heater.direction = digitalio.Direction.OUTPUT
-off = config.gpio_heat_invert
+off = CONFIG.gpio_heat_invert
 on = not off
 
 print("\nboard: %s" % (board.board_id))
-print("heater configured as config.gpio_heat = %s BCM pin\n" % (config.gpio_heat))
-print("heater output pin configured as invert = %r\n" % (config.gpio_heat_invert))
+print("heater configured as config.gpio_heat = %s BCM pin\n" % (CONFIG.gpio_heat))
+print("heater output pin configured as invert = %r\n" % (CONFIG.gpio_heat_invert))
 
 while True:
     heater.value = on

@@ -5,6 +5,7 @@ import os
 import sys
 import logging
 import json
+import subprocess
 
 import bottle
 import gevent
@@ -16,22 +17,22 @@ from geventwebsocket import WebSocketError
 from bottle import abort
 
 # try/except removed here on purpose so folks can see why things break
-import config
+from config import CONFIG
 
-logging.basicConfig(level=config.log_level, format=config.log_format)
+logging.basicConfig(level=CONFIG.log_level, format=CONFIG.log_format)
 log = logging.getLogger("kiln-controller")
 log.info("Starting kiln controller")
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, script_dir + '/lib/')
-profile_path = config.kiln_profiles_directory
+profile_path = CONFIG.kiln_profiles_directory
 
 from oven import SimulatedOven, RealOven, Profile
 from ovenWatcher import OvenWatcher
 
 app = bottle.Bottle()
 
-if config.simulate == True:
+if CONFIG.simulate == True:
     log.info("this is a simulation")
     oven = SimulatedOven()
 else:
@@ -64,6 +65,8 @@ def handle_api():
 
     # run a kiln schedule
     if bottle.request.json['cmd'] == 'run':
+        if not validate_pin(bottle.request.json.get('pin')):
+            return { "success" : False, "error" : "invalid pin" }
         wanted = bottle.request.json['profile']
         log.info('api requested run of profile = %s' % wanted)
 
@@ -100,6 +103,17 @@ def handle_api():
     if bottle.request.json['cmd'] == 'stop':
         log.info("api stop command received")
         oven.abort_run()
+
+    if bottle.request.json['cmd'] == 'shutdown':
+        log.info("api shutdown command received")
+        if not validate_pin(bottle.request.json.get('pin')):
+            return { "success" : False, "error" : "invalid pin" }
+        if oven.state != 'IDLE':
+            return { "success" : False, "error" : "kiln must be idle to shutdown" }
+        ok, err = request_shutdown()
+        if not ok:
+            return { "success" : False, "error" : err }
+        return { "success" : True }
 
     if bottle.request.json['cmd'] == 'memo':
         log.info("api memo command received")
@@ -144,6 +158,43 @@ def get_websocket_from_request():
     return wsock
 
 
+def validate_pin(pin):
+    try:
+        return int(pin) == int(CONFIG.security_pin)
+    except (TypeError, ValueError):
+        return False
+
+
+def request_shutdown():
+    try:
+        subprocess.run(
+            ["sudo", "-n", "shutdown", "-h", "+1", "kiln-controller shutdown"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return True, None
+    except subprocess.CalledProcessError as exc:
+        err = exc.stderr.strip() if exc.stderr else "shutdown failed"
+        return False, err
+
+
+def can_shutdown():
+    try:
+        subprocess.run(
+            ["sudo", "-n", "-l", "shutdown"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return True, None
+    except FileNotFoundError:
+        return False, "sudo not available"
+    except subprocess.CalledProcessError as exc:
+        err = exc.stderr.strip() or exc.stdout.strip() or "shutdown not permitted"
+        return False, err
+
+
 @app.route('/control')
 def handle_control():
     wsock = get_websocket_from_request()
@@ -156,6 +207,9 @@ def handle_control():
                 msgdict = json.loads(message)
                 if msgdict.get("cmd") == "RUN":
                     log.info("RUN command received")
+                    if not validate_pin(msgdict.get("pin")):
+                        wsock.send(json.dumps({"resp": "FAIL", "error": "invalid pin"}))
+                        continue
                     profile_obj = msgdict.get('profile')
                     if profile_obj:
                         profile_json = json.dumps(profile_obj)
@@ -179,6 +233,25 @@ def handle_control():
                 elif msgdict.get("cmd") == "STOP":
                     log.info("Stop command received")
                     oven.abort_run()
+                elif msgdict.get("cmd") == "SHUTDOWN":
+                    log.info("Shutdown command received")
+                    if not validate_pin(msgdict.get("pin")):
+                        wsock.send(json.dumps({"resp": "FAIL", "error": "invalid pin"}))
+                        continue
+                    if oven.state != "IDLE":
+                        wsock.send(json.dumps({"resp": "FAIL", "error": "kiln must be idle to shutdown"}))
+                        continue
+                    ok, err = request_shutdown()
+                    if not ok:
+                        wsock.send(json.dumps({"resp": "FAIL", "error": err}))
+                        continue
+                    wsock.send(json.dumps({"resp": "OK"}))
+                elif msgdict.get("cmd") == "SHUTDOWN_CHECK":
+                    ok, err = can_shutdown()
+                    if not ok:
+                        wsock.send(json.dumps({"resp": "FAIL", "cmd": "SHUTDOWN_CHECK", "error": err}))
+                        continue
+                    wsock.send(json.dumps({"resp": "OK", "cmd": "SHUTDOWN_CHECK"}))
             time.sleep(1)
         except WebSocketError as e:
             log.error(e)
@@ -296,15 +369,15 @@ def delete_profile(profile):
     return True
 
 def get_config():
-    return json.dumps({"temp_scale": config.temp_scale,
-        "time_scale_slope": config.time_scale_slope,
-        "time_scale_profile": config.time_scale_profile,
-        "kwh_rate": config.kwh_rate,
-        "currency_type": config.currency_type})    
+    return json.dumps({"temp_scale": CONFIG.temp_scale,
+        "time_scale_slope": CONFIG.time_scale_slope,
+        "time_scale_profile": CONFIG.time_scale_profile,
+        "kwh_rate": CONFIG.kwh_rate,
+        "currency_type": CONFIG.currency_type})    
 
 def main():
     ip = "0.0.0.0"
-    port = config.listening_port
+    port = CONFIG.listening_port
     log.info("listening on %s:%d" % (ip, port))
 
     server = WSGIServer((ip, port), app,

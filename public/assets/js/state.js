@@ -1,6 +1,7 @@
 config = "";
 all = [];
 var table = "";
+var temp_scale = "c";
 
 var protocol = 'ws:';
 if (window.location.protocol == 'https:') {
@@ -13,6 +14,7 @@ var ws_config = new WebSocket(host+"/config");
 ws_status.onmessage = function(e) {
   x = JSON.parse(e.data);
   if (x.pidstats) {
+    x.pidstats = convertPidstats(x.pidstats);
     x.pidstats["datetime"]=unix_to_yymmdd_hhmmss(x.pidstats.time);
     x.pidstats.err = x.pidstats.err*-1;
     x.pidstats.out = x.pidstats.out*100;
@@ -46,6 +48,9 @@ ws_config.onopen = function() {
 
 ws_config.onmessage = function(e) {
   config = JSON.parse(e.data);
+  if (config.temp_scale) {
+    temp_scale = config.temp_scale;
+  }
   //console.log(e);
   };
 
@@ -54,6 +59,31 @@ create_table(all);
 //---------------------------------------------------------------------------
 function rnd(number) {
 return Number(number).toFixed(2);
+}
+
+function cToF(temp) {
+return (temp * 9 / 5) + 32;
+}
+
+function cDeltaToF(temp) {
+return temp * 9 / 5;
+}
+
+function toDisplayTemp(temp) {
+return (temp_scale == "f") ? cToF(temp) : temp;
+}
+
+function toDisplayDelta(temp) {
+return (temp_scale == "f") ? cDeltaToF(temp) : temp;
+}
+
+function convertPidstats(stats) {
+var out = Object.assign({}, stats);
+out.ispoint = toDisplayTemp(out.ispoint);
+out.setpoint = toDisplayTemp(out.setpoint);
+out.err = toDisplayDelta(out.err);
+out.errDelta = toDisplayDelta(out.errDelta);
+return out;
 }
 //---------------------------------------------------------------------------
 function average(field,minutes,data) {
@@ -299,4 +329,3 @@ table = new Tabulator("#state-table", {
 function csv_string() {
 table.download("csv", "kiln-state.csv");
 }
-

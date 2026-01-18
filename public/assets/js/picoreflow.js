@@ -13,6 +13,7 @@ var time_scale_long = "Seconds";
 var temp_scale_display = "C";
 var kwh_rate = 0.26;
 var currency_type = "EUR";
+var shutdown_ready = false;
 
 function cToF(temp) {
     return (temp * 9 / 5) + 32;
@@ -41,6 +42,32 @@ function toCTemp(temp) {
 function profileDataForDisplay(profile) {
     return profile.data.map(function(point) {
         return [point[0], toDisplayTemp(point[1])];
+    });
+}
+
+function requestPin(action) {
+    var pin = prompt("Enter PIN to " + action + ":");
+    if (pin === null) {
+        return null;
+    }
+    pin = pin.trim();
+    if (!/^[0-9]+$/.test(pin)) {
+        showNotice('error', "<b>Invalid PIN:</b> numbers only.");
+        return null;
+    }
+    return pin;
+}
+
+function showNotice(kind, message) {
+    $.bootstrapGrowl(message, {
+        ele: 'body',
+        type: kind,
+        offset: {from: 'top', amount: 250},
+        align: 'center',
+        width: 385,
+        delay: 5000,
+        allow_dismiss: true,
+        stackup_spacing: 10
     });
 }
 
@@ -240,10 +267,15 @@ if(axis.max<=60) {
 
 function runTask()
 {
+    var pin = requestPin("start the kiln");
+    if (pin === null) {
+        return;
+    }
     var cmd =
     {
         "cmd": "RUN",
-        "profile": profiles[selected_profile]
+        "profile": profiles[selected_profile],
+        "pin": pin
     }
 
     graph.live.data = [];
@@ -272,6 +304,24 @@ function runTaskSimulation()
 function abortTask()
 {
     var cmd = {"cmd": "STOP"};
+    ws_control.send(JSON.stringify(cmd));
+}
+
+function shutdownTask()
+{
+    if (!shutdown_ready) {
+        showNotice('error', "<b>Shutdown unavailable:</b> permissions not configured.");
+        return;
+    }
+    if (state != "IDLE") {
+        showNotice('error', "<b>Shutdown blocked:</b> kiln must be idle.");
+        return;
+    }
+    var pin = requestPin("shut down the kiln controller");
+    if (pin === null) {
+        return;
+    }
+    var cmd = {"cmd": "SHUTDOWN", "pin": pin};
     ws_control.send(JSON.stringify(cmd));
 }
 
@@ -529,6 +579,18 @@ $(document).ready(function()
             allow_dismiss: true,
             stackup_spacing: 10 // spacing between consecutively stacked growls.
           });
+            setTimeout(function() {
+                $.bootstrapGrowl("<span class=\"glyphicon glyphicon-info-sign\"></span> <b>Offline:</b><br/>If the kiln is idle, it is safe to shut down the controller.", {
+                ele: 'body',
+                type: 'info',
+                offset: {from: 'top', amount: 250},
+                align: 'center',
+                width: 385,
+                delay: 5000,
+                allow_dismiss: true,
+                stackup_spacing: 10
+              });
+            }, 3000);
         };
 
         ws_status.onmessage = function(e)
@@ -580,6 +642,7 @@ $(document).ready(function()
                 {
                     $("#nav_start").hide();
                     $("#nav_stop").show();
+                    $("#nav_shutdown").hide();
 
                     graph.live.data.push([x.runtime, toDisplayTemp(x.temperature)]);
                     graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ] , getOptions());
@@ -599,6 +662,7 @@ $(document).ready(function()
                 {
                     $("#nav_start").show();
                     $("#nav_stop").hide();
+                    $("#nav_shutdown").toggle(state == "IDLE" && shutdown_ready);
                     $('#state').html('<p class="ds-text">'+state+'</p>');
                 }
 
@@ -666,7 +730,7 @@ $(document).ready(function()
 
         ws_control.onopen = function()
         {
-
+            ws_control.send(JSON.stringify({"cmd": "SHUTDOWN_CHECK"}));
         };
 
         ws_control.onmessage = function(e)
@@ -675,8 +739,21 @@ $(document).ready(function()
             console.log ("control socket has been opened")
             console.log (e.data);
             x = JSON.parse(e.data);
-            graph.live.data.push([x.runtime, toDisplayTemp(x.temperature)]);
-            graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ] , getOptions());
+            if (x.cmd == "SHUTDOWN_CHECK") {
+                shutdown_ready = (x.resp == "OK");
+                if (!shutdown_ready) {
+                    showNotice('error', "<b>Shutdown unavailable:</b> " + x.error);
+                }
+                $("#nav_shutdown").toggle(state == "IDLE" && shutdown_ready);
+                return;
+            }
+            if (x.runtime !== undefined && x.temperature !== undefined) {
+                graph.live.data.push([x.runtime, toDisplayTemp(x.temperature)]);
+                graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ] , getOptions());
+            }
+            if (x.resp == "FAIL" && x.error) {
+                showNotice('error', "<b>Command failed:</b> " + x.error);
+            }
 
         }
 

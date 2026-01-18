@@ -8,7 +8,7 @@ import argparse
 
 try:
         sys.dont_write_bytecode = True
-        import config
+        from config import CONFIG
         sys.dont_write_bytecode = False
 
 except ImportError:
@@ -30,7 +30,7 @@ def recordprofile(csvfile, targettemp):
     csvout.writerow(['time', 'temperature'])
 
     # construct the oven
-    if config.simulate:
+    if CONFIG.simulate:
         oven = SimulatedOven()
         oven.target = targettemp * 2 # insures max heating for simulation
     else:
@@ -43,20 +43,20 @@ def recordprofile(csvfile, targettemp):
     # * wait for it to decay back to the target again.
     # * quit
     #
-    # We record the temperature every config.sensor_time_wait
+    # We record the temperature every CONFIG.sensor_time_wait
     try:
 
         # heating to target of 400F
         temp = 0
-        sleepfor = config.sensor_time_wait
+        sleepfor = CONFIG.sensor_time_wait
         stage = "heating"
         while(temp <= targettemp):
-            if config.simulate:
+            if CONFIG.simulate:
                 oven.heat_then_cool()
             else:
                 oven.output.heat(sleepfor)
             temp = oven.board.temp_sensor.temperature() + \
-                config.thermocouple_offset
+                CONFIG.thermocouple_offset
             
             print("stage = %s, actual = %.2f, target = %.2f" % (stage,temp,targettemp))
             csvout.writerow([time.time(), temp])
@@ -64,15 +64,15 @@ def recordprofile(csvfile, targettemp):
 
         # overshoot past target of 400F and then cooling down to 400F
         stage = "cooling"
-        if config.simulate:
+        if CONFIG.simulate:
             oven.target = 0
         while(temp >= targettemp):
-            if config.simulate:
+            if CONFIG.simulate:
                 oven.heat_then_cool()
             else:
                 oven.output.cool(sleepfor)
             temp = oven.board.temp_sensor.temperature() + \
-                config.thermocouple_offset
+                CONFIG.thermocouple_offset
             
             print("stage = %s, actual = %.2f, target = %.2f" % (stage,temp,targettemp))
             csvout.writerow([time.time(), temp])
@@ -81,7 +81,7 @@ def recordprofile(csvfile, targettemp):
     finally:
         f.close()
         # ensure we always shut the oven down!
-        if not config.simulate:
+        if not CONFIG.simulate:
             oven.output.cool(0)
 
 
