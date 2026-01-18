@@ -17,7 +17,7 @@ except NotImplementedError:
 #
 # To test your thermocouple...
 #
-# Edit config.py and set the following in that file to match your
+# Edit config.toml and set the following in that file to match your
 # hardware setup: SPI_SCLK, SPI_MOSI, SPI_MISO, SPI_CS
 #
 # then run this script...

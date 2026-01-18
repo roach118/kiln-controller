@@ -16,7 +16,7 @@ except NotImplementedError:
 #
 # To test your gpio output to control a relay...
 #
-# Edit config.py and set the following in that file to match your
+# Edit config.toml and set the following in that file to match your
 # hardware setup: gpio_heat, gpio_heat_invert
 #
 # then run this script...

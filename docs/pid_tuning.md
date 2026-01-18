@@ -12,11 +12,11 @@ A controller with properly tuned PID values reacts quickly to changes in the set
 
 ### Automatic Tuning
 
-Contributor [ADQ](https://github.com/adq) worked hard on creating a [Ziegler Nicols auto-tuner](ziegler_tuning.md) which is python script that heats your kiln, saves data to a csv, and then gives you PID parameters for config.py.
+Contributor [ADQ](https://github.com/adq) worked hard on creating a [Ziegler Nicols auto-tuner](ziegler_tuning.md) which is python script that heats your kiln, saves data to a csv, and then gives you PID parameters for config.toml.
 
 ### Manual Tuning
 
-Even if you used the tuner above, it's likely you'll need to do some manual tuning. Let's start with some reasonable values for PID settings in config.py...
+Even if you used the tuner above, it's likely you'll need to do some manual tuning. Let's start with some reasonable values for PID settings in config.toml...
 
     pid_kp = 20
     pid_ki = 50

@@ -48,13 +48,13 @@ Turns a Raspberry Pi into an inexpensive, web-enabled kiln controller.
 
 ### Schematic
 
-The pi has three gpio pins connected to the MAX31855 chip. D0 is configured as an input and CS and CLK are outputs. The signal that controls the solid state relay starts as a gpio output which drives a transistor acting as a switch in front of it. This transistor provides 5V and plenty of current to control the ssr. Since only four gpio pins are in use, any pi can be used for this project. See the [config](https://github.com/jbruce12000/kiln-controller/blob/main/config.py) file for gpio pin configuration.
+The pi has three gpio pins connected to the MAX31855 chip. D0 is configured as an input and CS and CLK are outputs. The signal that controls the solid state relay starts as a gpio output which drives a transistor acting as a switch in front of it. This transistor provides 5V and plenty of current to control the ssr. Since only four gpio pins are in use, any pi can be used for this project. See the [config](https://github.com/jbruce12000/kiln-controller/blob/main/config.toml) file for gpio pin configuration.
 
 My controller plugs into the wall, and the kiln plugs into the controller. 
 
 **WARNING** This project involves high voltages and high currents. Please make sure that anything you build conforms to local electrical codes and aligns with industry best practices.
 
-**Note:** The GPIO configuration in this schematic does not match the defaults, check [config](https://github.com/jbruce12000/kiln-controller/blob/main/config.py) and make sure the gpio pin configuration aligns with your actual connections.
+**Note:** The GPIO configuration in this schematic does not match the defaults, check [config](https://github.com/jbruce12000/kiln-controller/blob/main/config.toml) and make sure the gpio pin configuration aligns with your actual connections.
 
 ![Image](https://github.com/jbruce12000/kiln-controller/blob/main/public/assets/images/schematic.png)
 
@@ -86,7 +86,7 @@ If you're done playing around with simulations and want to deploy the code on a 
 
 ## Configuration
 
-All parameters are defined in config.py. You need to read through config.py carefully to understand each setting. Here are some of the most important settings:
+All parameters are defined in config.toml. You need to read through config.toml carefully to understand each setting. Here are some of the most important settings:
 
 | Variable | Default | Description |
 | -------- | ------- | ----------- |
@@ -116,7 +116,7 @@ and you can use this script to examine each pin's state including input/output/v
 
 ## PID Tuning
 
-Run the [autotuner](https://github.com/jbruce12000/kiln-controller/blob/main/docs/ziegler_tuning.md). It will heat your kiln to 400F, pass that, and then once it cools back down to 400F, it will calculate PID values which you must copy into config.py. No tuning is perfect across a wide temperature range. Here is a [PID Tuning Guide](https://github.com/jbruce12000/kiln-controller/blob/main/docs/pid_tuning.md) if you end up having to manually tune.
+Run the [autotuner](https://github.com/jbruce12000/kiln-controller/blob/main/docs/ziegler_tuning.md). It will heat your kiln to 400F, pass that, and then once it cools back down to 400F, it will calculate PID values which you must copy into config.toml. No tuning is perfect across a wide temperature range. Here is a [PID Tuning Guide](https://github.com/jbruce12000/kiln-controller/blob/main/docs/pid_tuning.md) if you end up having to manually tune.
 
 There is a state view that can help with tuning. It shows the P,I, and D parameters over time plus allows for a csv dump of data collected. It also shows lots of other details that might help with troubleshooting issues. Go to /state.
 
@@ -134,11 +134,11 @@ If you want the server to autostart on boot, run the following command:
 ### Client Access
 
 Click http://127.0.0.1:8081 for local development or the IP
-of your PI and the port defined in config.py (default 8081).
+of your PI and the port defined in config.toml (default 8081).
 
 ### Simulation
 
-In config.py, set **simulate=True**. Start the server and select a profile and click Start. Simulations run at near real time.
+In config.toml, set **simulate=true**. Start the server and select a profile and click Start. Simulations run at near real time.
 
 ### Scheduling a Kiln run
 

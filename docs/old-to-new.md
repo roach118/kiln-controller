@@ -13,12 +13,12 @@ As of 2023 I stopped supporting and adding features to the old code. It still wo
 
 ## Easiest possible migration
 
-The easiest way to convert from the old code to the new is to use software spi, also known as bitbanging, to grab data from the thermocouple board. You will not have to make any wiring changes. You'll only need to change config.py and test it to make sure it works.
+The easiest way to convert from the old code to the new is to use software spi, also known as bitbanging, to grab data from the thermocouple board. You will not have to make any wiring changes. You'll only need to change config.toml and test it to make sure it works.
 
-  1. make a backup of config.py. You'll need it for the next step.
+  1. make a backup of config.toml. You'll need it for the next step.
 
 ```
-  cp config.py config.py.bak
+  cp config.toml config.toml.bak
 ```
 
   2. update to the new code
@@ -37,7 +37,7 @@ source venv/bin/activate
 pip install -r ./requirements.txt
 ```
 
-  4. find these settings in config.py.bak and change them in config.py:
+  4. find these settings in config.toml.bak and change them in config.toml:
 
 ```
   gpio_sensor_cs = 27
@@ -47,15 +47,15 @@ pip install -r ./requirements.txt
   gpio_heat = 23
 ```
 
-  change them in config.py to look like so:
+  change them in config.toml to look like so:
 
 ```
-  spi_cs = board.D27
-  spi_sclk = board.D22
-  spi_miso = board.D17
-  spi_mosi = board.D10 #this one is not actually used, so set it or not
-  gpio_heat = board.D23
-  gpio_heat_invert = False
+  spi_cs = "D27"
+  spi_sclk = "D22"
+  spi_miso = "D17"
+  spi_mosi = "D10" # this one is not actually used, so set it or not
+  gpio_heat = "D23"
+  gpio_heat_invert = false
 ```
 
   5. test the thermocouple board and thermocouple
@@ -73,5 +73,3 @@ pip install -r ./requirements.txt
 ```
 
   Every 5 seconds, verify the output is flipped from on to off or vice versa.
-
-

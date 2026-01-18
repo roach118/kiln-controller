@@ -13,7 +13,7 @@ try:
 
 except ImportError:
         print("Could not import config file.")
-        print("Copy config.py.EXAMPLE to config.py and adapt it for your setup.")
+        print("Create config.toml and adapt it for your setup.")
         exit(1)
 
 

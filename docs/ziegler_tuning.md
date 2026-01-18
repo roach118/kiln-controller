@@ -41,9 +41,9 @@ pid_ki = 4.745613033146341
 pid_kd = 240.27736881914797
 ```
 
-## Step 3: Replace the PID parameters in config.py
+## Step 3: Replace the PID parameters in config.toml
 
-Copy & paste the pid_kp, pid_ki, and pid_kd values into config.py and restart the kiln-controller. Test out the values by firing your kiln. They may require manual adjustment.
+Copy & paste the pid_kp, pid_ki, and pid_kd values into config.toml and restart the kiln-controller. Test out the values by firing your kiln. They may require manual adjustment.
 
 ## The values didn't work for me.
 

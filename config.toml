@@ -1,0 +1,120 @@
+[logging]
+# Python logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+level = "INFO"
+# Standard logging format string.
+format = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+
+[server]
+# Web UI and websocket port.
+listening_port = 8081
+
+[cost]
+# Cost per kWh for energy estimates.
+kwh_rate = 0.1319
+# Total kiln element power draw in kilowatts.
+kw_elements = 9.460
+# Currency symbol for display.
+currency_type = "$"
+
+[hardware]
+# SPI pins for software SPI (bit-banged). Use board pin names (e.g., "D23").
+# If these are omitted, hardware SPI is used.
+spi_sclk = "D17"
+spi_miso = "D27"
+spi_cs = "D22"
+spi_mosi = "D10"
+# Relay control GPIO output pin.
+gpio_heat = "D23"
+# If true, invert the relay output state.
+gpio_heat_invert = false
+
+[thermocouple]
+# Select which MAX3185x breakout board is attached ("max31855" or "max31856").
+model = "max31855"
+# Thermocouple type for MAX31856 (B, E, J, K, N, R, S, T).
+type = "K"
+# Set true in 50Hz locales to improve filtering.
+ac_freq_50hz = false
+# Error overrides (set true to ignore specific fault conditions).
+ignore_tc_lost_connection = false
+ignore_tc_cold_junction_range_error = false
+ignore_tc_range_error = false
+ignore_tc_cold_junction_temp_high = false
+ignore_tc_cold_junction_temp_low = false
+ignore_tc_temp_high = false
+ignore_tc_temp_low = false
+ignore_tc_voltage_error = false
+ignore_tc_short_errors = false
+ignore_tc_unknown_error = false
+# Ignore all thermocouple errors and keep running (use with care).
+ignore_tc_too_many_errors = false
+
+[run]
+# If kiln is already hot, skip ahead to the first matching point in the profile.
+seek_start = true
+# Duty cycle in seconds.
+sensor_time_wait = 2
+# Pause profile progression until temperature catches up.
+kiln_must_catch_up = true
+# PID control window in degrees C.
+pid_control_window = 2.78
+# Thermocouple temperature offset in degrees C.
+thermocouple_offset = 0
+# Number of samples per duty cycle for temperature smoothing.
+temperature_average_samples = 10
+# Temperature display unit for the UI only (internal is always C).
+temp_scale = "f"
+# Slope display time base: s, m, or h.
+time_scale_slope = "h"
+# Profile entry display time base: s, m, or h.
+time_scale_profile = "m"
+# Emergency shutoff temperature in degrees C.
+emergency_shutoff_temp = 1240
+# Ignore emergency shutoff on over-temperature (use with care).
+ignore_temp_too_high = false
+# Temperature below which heating is throttled (degrees C).
+throttle_below_temp = 148.89
+# Maximum heating percentage below the throttle temperature.
+throttle_percent = 20
+# Deprecated but kept for compatibility (windup is handled automatically).
+stop_integral_windup = true
+
+[pid]
+# PID tuning parameters.
+pid_kp = 10
+pid_ki = 80
+pid_kd = 220.83497910261562
+
+[simulation]
+# Run in simulated mode (no hardware required).
+simulate = true
+# Ambient/environment temperature in degrees C.
+sim_t_env = 18.33
+# Heat capacity of heating element (J/K).
+sim_c_heat = 500.0
+# Heat capacity of oven (J/K).
+sim_c_oven = 5000.0
+# Heating power (W).
+sim_p_heat = 5450.0
+# Thermal resistance oven -> environment (K/W) with no cooling.
+sim_R_o_nocool = 0.5
+# Thermal resistance oven -> environment (K/W) with cooling.
+sim_R_o_cool = 0.05
+# Thermal resistance heat element -> oven (K/W) without air circulation.
+sim_R_ho_noair = 0.1
+# Thermal resistance heat element -> oven (K/W) with air circulation.
+sim_R_ho_air = 0.05
+# Simulation speed multiplier (1 = real time).
+sim_speedup_factor = 1
+
+[restart]
+# Enable automatic restart after power loss.
+automatic_restarts = true
+# Max minutes since power outage to allow restart.
+automatic_restart_window = 15
+# State file path for restarts (relative to config.toml by default).
+automatic_restart_state_file = "state.json"
+
+[profiles]
+# Directory containing profile JSON files (relative to config.toml by default).
+kiln_profiles_directory = "storage/profiles"
