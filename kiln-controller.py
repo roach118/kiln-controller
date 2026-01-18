@@ -121,7 +121,7 @@ def find_profile(wanted):
     json profile object or None.
     '''
     #load all profiles from disk
-    profiles = get_profiles()
+    profiles = get_profiles(display=False)
     json_profiles = json.loads(profiles)
 
     # find the wanted profile
@@ -158,6 +158,7 @@ def handle_control():
                     log.info("RUN command received")
                     profile_obj = msgdict.get('profile')
                     if profile_obj:
+                        profile_obj = normalize_profile_to_c(profile_obj)
                         profile_json = json.dumps(profile_obj)
                         profile = Profile(profile_json)
                     else:
@@ -262,7 +263,7 @@ def handle_status():
     log.info("websocket (status) closed")
 
 
-def get_profiles():
+def get_profiles(display=True):
     try:
         profile_files = os.listdir(profile_path)
     except:
@@ -271,12 +272,14 @@ def get_profiles():
     for filename in profile_files:
         with open(os.path.join(profile_path, filename), 'r') as f:
             profiles.append(json.load(f))
-    profiles = normalize_temp_units(profiles)
+    profiles = [normalize_profile_to_c(profile) for profile in profiles]
+    if display:
+        profiles = [profile_to_display(profile) for profile in profiles]
     return json.dumps(profiles)
 
 
 def save_profile(profile, force=False):
-    profile=add_temp_units(profile)
+    profile = normalize_profile_to_c(profile)
     profile_json = json.dumps(profile)
     filename = profile['name']+".json"
     filepath = os.path.join(profile_path, filename)
@@ -289,45 +292,32 @@ def save_profile(profile, force=False):
     log.info("Wrote %s" % filepath)
     return True
 
-def add_temp_units(profile):
-    """
-    always store the temperature in degrees c
-    this way folks can share profiles
-    """
-    if "temp_units" in profile:
-        return profile
-    profile['temp_units']="c"
-    if config.temp_scale=="c":
-        return profile
-    if config.temp_scale=="f":
-        profile=convert_to_c(profile);
-        return profile
+def f_to_c(temp):
+    return (temp - 32) * 5 / 9
 
-def convert_to_c(profile):
-    newdata=[]
-    for (secs,temp) in profile["data"]:
-        temp = (5/9)*(temp-32)
-        newdata.append((secs,temp))
-    profile["data"]=newdata
+
+def c_to_f(temp):
+    return (temp * 9 / 5) + 32
+
+
+def normalize_profile_to_c(profile):
+    units = profile.get("temp_units")
+    if units is None:
+        units = "f"
+    units = units.lower()
+    if units == "f":
+        profile["data"] = [[secs, f_to_c(temp)] for secs, temp in profile["data"]]
+    profile["temp_units"] = "c"
     return profile
 
-def convert_to_f(profile):
-    newdata=[]
-    for (secs,temp) in profile["data"]:
-        temp = ((9/5)*temp)+32
-        newdata.append((secs,temp))
-    profile["data"]=newdata
-    return profile
 
-def normalize_temp_units(profiles):
-    normalized = []
-    for profile in profiles:
-        if "temp_units" in profile:
-            if config.temp_scale == "f" and profile["temp_units"] == "c": 
-                profile = convert_to_f(profile)
-                profile["temp_units"] = "f"
-        normalized.append(profile)
-    return normalized
+def profile_to_display(profile):
+    if config.temp_scale.lower() == "f":
+        profile["data"] = [[secs, c_to_f(temp)] for secs, temp in profile["data"]]
+        profile["temp_units"] = "f"
+    else:
+        profile["temp_units"] = "c"
+    return profile
 
 def delete_profile(profile):
     profile_json = json.dumps(profile)

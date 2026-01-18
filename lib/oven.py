@@ -136,11 +136,9 @@ class TempSensorReal(TempSensor):
             log.info("Hardware SPI selected for reading thermocouple")
 
     def get_temperature(self):
-        '''read temp from tc and convert if needed'''
+        '''read temp from tc'''
         try:
             temp = self.raw_temp() # raw_temp provided by subclasses
-            if config.temp_scale.lower() == "f":
-                temp = (temp*9/5)+32
             self.status.good()
             return temp
         except ThermocoupleError as tce:
@@ -583,7 +581,7 @@ class SimulatedOven(Oven):
         self.speedup_factor = config.sim_speedup_factor
 
         # set temps to the temp of the surrounding environment
-        self.t = config.sim_t_env  # deg C or F temp of oven
+        self.t = config.sim_t_env  # deg C temp of oven
         self.t_h = self.t_env #deg C temp of heating element
 
         super().__init__()

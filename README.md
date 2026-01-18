@@ -91,7 +91,7 @@ All parameters are defined in config.py. You need to read through config.py care
 | Variable | Default | Description |
 | -------- | ------- | ----------- |
 | sensor_time_wait | 2 seconds | It's the duty cycle for the entire system.  It's set to two seconds by default which means that a decision is made every 2s about whether to turn on relay[s] and for how long. If you use mechanical relays, you may want to increase this. At 2s, my SSR switches 11,000 times in 13 hours. |
-| temp_scale | f | f for farenheit, c for celcius |
+| temp_scale | f | Unit to display (f for Fahrenheit, c for Celsius). All temperature values in config are in Celsius. |
 | pid parameters | | Used to tune your kiln. See PID Tuning. |
 | simulate | True | Simulate a kiln. Used to test the software by new users so they can check out the features. |
  

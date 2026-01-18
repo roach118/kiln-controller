@@ -1,4 +1,5 @@
 import threading,logging,json,time,datetime
+import config
 from oven import Oven
 log = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class OvenWatcher(threading.Thread):
 
     def run(self):
         while True:
-            oven_state = self.oven.get_state()
+            oven_state = self.convert_state_for_display(self.oven.get_state())
            
             # record state for any new clients that join
             if oven_state.get("state") == "RUNNING":
@@ -49,7 +50,7 @@ class OvenWatcher(threading.Thread):
         self.started = datetime.datetime.now()
         self.recording = True
         #we just turned on, add first state for nice graph
-        self.last_log.append(self.oven.get_state())
+        self.last_log.append(self.convert_state_for_display(self.oven.get_state()))
 
     def add_observer(self,observer):
         if self.last_profile:
@@ -58,6 +59,7 @@ class OvenWatcher(threading.Thread):
                 "data": self.last_profile.data, 
                 "type" : "profile"
             }
+            p = self.convert_profile_for_display(p)
         else:
             p = None
         
@@ -97,3 +99,40 @@ class OvenWatcher(threading.Thread):
                 with self.observers_lock:
                     if wsock in self.observers:
                         self.observers.remove(wsock)
+
+    def convert_state_for_display(self, state):
+        if config.temp_scale.lower() != "f":
+            return state
+
+        converted = dict(state)
+        for key in ("temperature", "target"):
+            if key in converted:
+                converted[key] = c_to_f(converted[key])
+        if "heat_rate" in converted:
+            converted["heat_rate"] = c_delta_to_f(converted["heat_rate"])
+        if "pidstats" in converted and converted["pidstats"]:
+            pidstats = dict(converted["pidstats"])
+            for key in ("setpoint", "ispoint"):
+                if key in pidstats:
+                    pidstats[key] = c_to_f(pidstats[key])
+            for key in ("err", "errDelta"):
+                if key in pidstats:
+                    pidstats[key] = c_delta_to_f(pidstats[key])
+            converted["pidstats"] = pidstats
+        return converted
+
+    def convert_profile_for_display(self, profile):
+        if config.temp_scale.lower() != "f":
+            return profile
+        converted = dict(profile)
+        converted["data"] = [[secs, c_to_f(temp)] for secs, temp in profile["data"]]
+        converted["temp_units"] = "f"
+        return converted
+
+
+def c_to_f(temp):
+    return (temp * 9 / 5) + 32
+
+
+def c_delta_to_f(temp):
+    return temp * 9 / 5

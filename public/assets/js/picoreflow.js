@@ -358,7 +358,7 @@ function saveProfile()
         last = rawdata[i][0];
     }
 
-    var profile = { "type": "profile", "data": data, "name": name }
+    var profile = { "type": "profile", "data": data, "name": name, "temp_units": temp_scale }
     var put = { "cmd": "PUT", "profile": profile }
 
     var put_cmd = JSON.stringify(put);

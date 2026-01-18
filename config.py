@@ -156,7 +156,7 @@ stop_integral_windup = True
 #
 #   Simulation parameters
 simulate = True
-sim_t_env      = 65   # deg
+sim_t_env      = 18.33   # deg C
 sim_c_heat     = 500.0  # J/K  heat capacity of heat element
 sim_c_oven     = 5000.0 # J/K  heat capacity of oven
 sim_p_heat     = 5450.0 # W    heating power of oven
@@ -174,8 +174,7 @@ sim_speedup_factor = 1
 #
 #   Time and Temperature parameters
 #
-# If you change the temp_scale, all settings in this file are assumed to
-# be in that scale.
+# Temperature values in this file are always in degrees C.
 temp_scale          = "f" # c = Celsius | f = Fahrenheit - Unit to display
 time_scale_slope    = "h" # s = Seconds | m = Minutes | h = Hours - Slope displayed in temp_scale per time_scale_slope
 time_scale_profile  = "m" # s = Seconds | m = Minutes | h = Hours - Enter and view target time in time_scale_profile
@@ -185,7 +184,7 @@ time_scale_profile  = "m" # s = Seconds | m = Minutes | h = Hours - Enter and vi
 # naturally cool off. If your SSR has failed/shorted/closed circuit, this
 # means your kiln receives full power until your house burns down.
 # this should not replace you watching your kiln or use of a kiln-sitter
-emergency_shutoff_temp = 2264 #cone 7
+emergency_shutoff_temp = 1240 #cone 7
 
 # If the current temperature is outside the pid control window,
 # delay the schedule until it does back inside. This allows for heating
@@ -199,11 +198,11 @@ kiln_must_catch_up = True
 # or 100% off because the kiln is too hot. No integral builds up
 # outside the window. The bigger you make the window, the more
 # integral you will accumulate. This should be a positive integer.
-pid_control_window = 5 #degrees
+pid_control_window = 2.78 #degrees C
 
 # thermocouple offset
-# If you put your thermocouple in ice water and it reads 36F, you can
-# set set this offset to -4 to compensate.  This probably means you have a
+# If you put your thermocouple in ice water and it reads 2C, you can
+# set set this offset to -2 to compensate.  This probably means you have a
 # cheap thermocouple.  Invest in a better thermocouple.
 thermocouple_offset=0
 
@@ -275,5 +274,5 @@ kiln_profiles_directory = os.path.abspath(os.path.join(os.path.dirname( __file__
 # control window and below throttle_below_temp, only throttle_percent
 # of the elements are used max.
 # To prevent throttling, set throttle_percent to 100.
-throttle_below_temp = 300
+throttle_below_temp = 148.89
 throttle_percent = 20
