@@ -87,6 +87,7 @@ pid_kd = 220.83497910261562
 
 [simulation] # CONFIG.simulation
 # Run in simulated mode (no hardware required).
+# If hardware pins cannot be resolved on this device, simulation is forced on.
 simulate = true
 # Ambient/environment temperature in degrees C.
 sim_t_env = 18.33
@@ -125,3 +126,17 @@ kiln_profiles_directory = "storage/profiles"
 #   sudo -n shutdown -h +1 "kiln-controller shutdown"
 # without a password. Configure sudoers with NOPASSWD for shutdown.
 pin = 1234
+
+[safety] # CONFIG.safety
+# Enable heating-stall detection when the kiln is commanded to heat.
+heating_stall_enabled = true
+# Window in minutes to require a minimum temperature rise.
+heating_stall_window_minutes = 10
+# Minimum temperature rise (deg C) required within the window.
+heating_stall_min_temp_rise = 1.0
+# Minimum heater output (0.0-1.0) to consider it "actively heating".
+heating_stall_min_heater_output = 0.7
+# Minimum target delta (deg C) before the check is applied.
+heating_stall_min_target_delta = 5.0
+# Ignore heating stall and keep running (use with care).
+ignore_heating_stall = false

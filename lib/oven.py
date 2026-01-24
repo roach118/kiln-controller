@@ -344,6 +344,8 @@ class Oven(threading.Thread):
         self.heat_rate_temps = []
         self.pid = PID(ki=CONFIG.pid.ki, kd=CONFIG.pid.kd, kp=CONFIG.pid.kp)
         self.catching_up = False
+        self.heat_check_time = None
+        self.heat_check_temp = None
 
     @staticmethod
     def get_start_from_temperature(profile, temp):
@@ -466,6 +468,7 @@ class Oven(threading.Thread):
             pass
 
         self.set_heat_rate(self.runtime,temp)
+        self.check_heating_progress(temp)
 
         state = {
             'cost': self.cost,
@@ -483,6 +486,48 @@ class Oven(threading.Thread):
             'catching_up': self.catching_up,
         }
         return state
+
+    def reset_heating_progress(self):
+        self.heat_check_time = None
+        self.heat_check_temp = None
+
+    def check_heating_progress(self, temp):
+        if not CONFIG.safety.heating_stall_enabled:
+            return
+        if self.state != "RUNNING":
+            self.reset_heating_progress()
+            return
+        pidstats = getattr(self.pid, "pidstats", {}) or {}
+        heat_output = float(pidstats.get("out", 0))
+        if heat_output < CONFIG.safety.heating_stall_min_heater_output:
+            self.reset_heating_progress()
+            return
+        if (self.target - temp) < CONFIG.safety.heating_stall_min_target_delta:
+            self.reset_heating_progress()
+            return
+        now = time.time()
+        if self.heat_check_time is None:
+            self.heat_check_time = now
+            self.heat_check_temp = temp
+            return
+        if (now - self.heat_check_time) < CONFIG.safety.heating_stall_window_seconds:
+            return
+        delta = temp - self.heat_check_temp
+        if delta < CONFIG.safety.heating_stall_min_temp_rise:
+            log.error(
+                "heating stalled: output %.2f, temp rise %.2fC over %.0fs"
+                % (
+                    heat_output,
+                    delta,
+                    CONFIG.safety.heating_stall_window_seconds,
+                )
+            )
+            if not CONFIG.safety.ignore_heating_stall:
+                self.abort_run()
+            self.reset_heating_progress()
+            return
+        self.heat_check_time = now
+        self.heat_check_temp = temp
 
     def save_state(self):
         with open(CONFIG.restart.automatic_restart_state_file, 'w', encoding='utf-8') as f:

@@ -28,16 +28,16 @@ def _resolve_path(base_dir, value):
     return os.path.abspath(os.path.join(base_dir, value))
 
 
-def _board_pin(name):
+def _board_pin(name, board_module, force_simulate):
     if not name:
         return None
-    try:
-        import board
-    except Exception:
-        return name
-    if not hasattr(board, name):
-        raise ValueError(f"Unknown board pin '{name}'")
-    return getattr(board, name)
+    if board_module is None:
+        force_simulate[0] = True
+        return None
+    if not hasattr(board_module, name):
+        force_simulate[0] = True
+        return None
+    return getattr(board_module, name)
 
 
 def _log_level(value):
@@ -181,6 +181,16 @@ class SecurityConfig:
 
 
 @dataclass
+class SafetyConfig:
+    heating_stall_enabled: bool
+    heating_stall_window_seconds: float
+    heating_stall_min_temp_rise: float
+    heating_stall_min_heater_output: float
+    heating_stall_min_target_delta: float
+    ignore_heating_stall: bool
+
+
+@dataclass
 class AppConfig:
     logging: LoggingConfig
     server: ServerConfig
@@ -193,6 +203,7 @@ class AppConfig:
     restart: RestartConfig
     profiles: ProfilesConfig
     security: SecurityConfig
+    safety: SafetyConfig
 
     def __post_init__(self):
         missing = []
@@ -229,6 +240,7 @@ class AppConfig:
         restart_cfg = data.get("restart", {})
         profiles_cfg = data.get("profiles", {})
         security_cfg = data.get("security", {})
+        safety_cfg = data.get("safety", {})
 
         model = thermocouple_cfg.get("model", "max31855").lower()
         max31855 = model == "max31855"
@@ -241,6 +253,27 @@ class AppConfig:
             if max31856
             else None
         )
+
+        force_simulate = [False]
+        try:
+            import board
+            board_module = board
+        except Exception:
+            board_module = None
+
+        hardware = HardwareConfig(
+            spi_sclk=_board_pin(hardware_cfg.get("spi_sclk"), board_module, force_simulate),
+            spi_miso=_board_pin(hardware_cfg.get("spi_miso"), board_module, force_simulate),
+            spi_cs=_board_pin(hardware_cfg.get("spi_cs"), board_module, force_simulate),
+            spi_mosi=_board_pin(hardware_cfg.get("spi_mosi"), board_module, force_simulate),
+            gpio_heat=_board_pin(hardware_cfg.get("gpio_heat"), board_module, force_simulate),
+            gpio_heat_invert=bool(hardware_cfg.get("gpio_heat_invert", False)),
+        )
+
+        simulate = bool(simulation_cfg.get("simulate", False))
+        if force_simulate[0] and not simulate:
+            print("config: hardware pins unavailable, forcing simulation mode")
+            simulate = True
 
         return cls(
             logging=LoggingConfig(
@@ -258,14 +291,7 @@ class AppConfig:
                 kw_elements=float(cost_cfg.get("kw_elements", 0.0)),
                 currency_type=cost_cfg.get("currency_type", "$"),
             ),
-            hardware=HardwareConfig(
-                spi_sclk=_board_pin(hardware_cfg.get("spi_sclk")),
-                spi_miso=_board_pin(hardware_cfg.get("spi_miso")),
-                spi_cs=_board_pin(hardware_cfg.get("spi_cs")),
-                spi_mosi=_board_pin(hardware_cfg.get("spi_mosi")),
-                gpio_heat=_board_pin(hardware_cfg.get("gpio_heat")),
-                gpio_heat_invert=bool(hardware_cfg.get("gpio_heat_invert", False)),
-            ),
+            hardware=hardware,
             thermocouple=ThermocoupleConfig(
                 max31855=max31855,
                 max31856=max31856,
@@ -305,7 +331,7 @@ class AppConfig:
                 kd=float(pid_cfg.get("pid_kd", 1)),
             ),
             simulation=SimulationConfig(
-                simulate=bool(simulation_cfg.get("simulate", False)),
+                simulate=simulate,
                 t_env=float(simulation_cfg.get("sim_t_env", 0)),
                 c_heat=float(simulation_cfg.get("sim_c_heat", 0)),
                 c_oven=float(simulation_cfg.get("sim_c_oven", 0)),
@@ -332,6 +358,14 @@ class AppConfig:
             ),
             security=SecurityConfig(
                 pin=_pin_value(security_cfg.get("pin")),
+            ),
+            safety=SafetyConfig(
+                heating_stall_enabled=bool(safety_cfg.get("heating_stall_enabled", True)),
+                heating_stall_window_seconds=float(safety_cfg.get("heating_stall_window_minutes", 10)) * 60,
+                heating_stall_min_temp_rise=float(safety_cfg.get("heating_stall_min_temp_rise", 1.0)),
+                heating_stall_min_heater_output=float(safety_cfg.get("heating_stall_min_heater_output", 0.7)),
+                heating_stall_min_target_delta=float(safety_cfg.get("heating_stall_min_target_delta", 5.0)),
+                ignore_heating_stall=bool(safety_cfg.get("ignore_heating_stall", False)),
             ),
         )
 
