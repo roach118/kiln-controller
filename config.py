@@ -181,6 +181,13 @@ class SecurityConfig:
 
 
 @dataclass
+class HistoryConfig:
+    enabled: bool
+    tick_seconds: float
+    directory: str
+
+
+@dataclass
 class SafetyConfig:
     heating_stall_enabled: bool
     heating_stall_window_seconds: float
@@ -203,6 +210,7 @@ class AppConfig:
     restart: RestartConfig
     profiles: ProfilesConfig
     security: SecurityConfig
+    history: HistoryConfig
     safety: SafetyConfig
 
     def __post_init__(self):
@@ -224,6 +232,8 @@ class AppConfig:
             raise ValueError("run.pid_control_window must be > 0")
         if self.run.throttle_percent < 0 or self.run.throttle_percent > 100:
             raise ValueError("run.throttle_percent must be between 0 and 100")
+        if self.history.enabled and self.history.tick_seconds <= 0:
+            raise ValueError("history.tick_seconds must be > 0")
         if missing:
             raise ValueError("Missing required config values: " + ", ".join(missing))
 
@@ -239,6 +249,7 @@ class AppConfig:
         simulation_cfg = data.get("simulation", {})
         restart_cfg = data.get("restart", {})
         profiles_cfg = data.get("profiles", {})
+        history_cfg = data.get("history", {})
         security_cfg = data.get("security", {})
         safety_cfg = data.get("safety", {})
 
@@ -354,6 +365,14 @@ class AppConfig:
                 kiln_profiles_directory=_resolve_path(
                     base_dir,
                     profiles_cfg.get("kiln_profiles_directory", "storage/profiles"),
+                ),
+            ),
+            history=HistoryConfig(
+                enabled=bool(history_cfg.get("enabled", True)),
+                tick_seconds=float(history_cfg.get("tick_seconds", 30)),
+                directory=_resolve_path(
+                    base_dir,
+                    history_cfg.get("directory", "storage/history"),
                 ),
             ),
             security=SecurityConfig(

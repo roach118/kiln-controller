@@ -6,6 +6,8 @@ var profiles = [];
 var time_mode = 0;
 var selected_profile = 0;
 var selected_profile_name = 'cone-05-long-bisque.json';
+var live_visible = true;
+var live_data_cache = [];
 var temp_scale = "c";
 var time_scale_slope = "s";
 var time_scale_profile = "h";
@@ -14,6 +16,11 @@ var temp_scale_display = "C";
 var kwh_rate = 0.26;
 var currency_type = "EUR";
 var shutdown_ready = false;
+var history_mode = false;
+var history_enabled = true;
+var history_runs = [];
+var history_series_raw = {};
+var history_colors = [ "#5d8aa8", "#c07b3c", "#6a8d73", "#b34b65", "#3a4a6b", "#b7a36a" ];
 
 function cToF(temp) {
     return (temp * 9 / 5) + 32;
@@ -43,6 +50,144 @@ function profileDataForDisplay(profile) {
     return profile.data.map(function(point) {
         return [point[0], toDisplayTemp(point[1])];
     });
+}
+
+function historySeriesForDisplay(series) {
+    return {
+        label: series.label,
+        data: series.data.map(function(point) {
+            return [point[0], toDisplayTemp(point[1])];
+        }),
+        points: { show: false },
+        color: series.color,
+        draggable: false
+    };
+}
+
+function resetLiveData() {
+    live_data_cache = [];
+    graph.live.data = [];
+}
+
+function addLivePoint(runtime, temp) {
+    live_data_cache.push([runtime, temp]);
+    if (live_visible) {
+        graph.live.data.push([runtime, temp]);
+    }
+}
+
+function syncLiveSeries() {
+    graph.live.data = live_visible ? live_data_cache.slice() : [];
+}
+
+function getPlotSeries() {
+    var series = [graph.profile];
+    if (history_mode) {
+        var keys = Object.keys(history_series_raw);
+        for (var i = 0; i < keys.length; i++) {
+            series.push(historySeriesForDisplay(history_series_raw[keys[i]]));
+        }
+    } else {
+        series.push(graph.live);
+    }
+    return series;
+}
+
+function plotGraph() {
+    graph.plot = $.plot("#graph_container", getPlotSeries(), getOptions());
+}
+
+function setHistoryMode(enabled) {
+    if (enabled && !history_enabled) {
+        showNotice('error', "<b>History disabled:</b> enable history logging in config.");
+        return;
+    }
+    history_mode = enabled;
+    $("#history_picker").toggle(enabled);
+    $("#btn_live_view").toggleClass("btn-primary", !enabled).toggleClass("btn-default", enabled);
+    $("#btn_history_view").toggleClass("btn-primary", enabled).toggleClass("btn-default", !enabled);
+    if (enabled) {
+        refreshHistoryList();
+    }
+    plotGraph();
+}
+
+function refreshHistoryList() {
+    $.getJSON("/api/history", function(resp) {
+        history_enabled = resp.enabled;
+        history_runs = resp.runs || [];
+        $('#history_select').find('option').remove().end();
+        if (!history_enabled) {
+            $('#history_select').append('<option value="">History disabled</option>');
+            return;
+        }
+        if (history_runs.length === 0) {
+            $('#history_select').append('<option value="">No firings available</option>');
+            return;
+        }
+        for (var i = 0; i < history_runs.length; i++) {
+            $('#history_select').append('<option value="'+history_runs[i]+'">'+history_runs[i]+'</option>');
+        }
+        $('#history_select').select2('val', history_runs[0]);
+    }).fail(function() {
+        showNotice('error', "<b>History unavailable:</b> failed to load firing list.");
+    });
+}
+
+function addSelectedHistoryRun() {
+    var run_id = $('#history_select').val();
+    if (!run_id) {
+        showNotice('info', "Select a firing to add.");
+        return;
+    }
+    addHistoryRun(run_id);
+}
+
+function addHistoryRun(run_id) {
+    if (history_series_raw[run_id]) {
+        showNotice('info', "That firing is already on the chart.");
+        return;
+    }
+    $.get("/api/history/" + encodeURIComponent(run_id), function(data) {
+        var lines = data.split("\n");
+        var points = [];
+        for (var i = 0; i < lines.length; i++) {
+            if (!lines[i]) {
+                continue;
+            }
+            try {
+                var entry = JSON.parse(lines[i]);
+            } catch (e) {
+                continue;
+            }
+            if (entry.type !== "tick") {
+                continue;
+            }
+            if (entry.runtime === undefined || entry.temperature === undefined) {
+                continue;
+            }
+            points.push([entry.runtime, entry.temperature]);
+        }
+        if (points.length === 0) {
+            showNotice('info', "No tick data found for that firing.");
+            return;
+        }
+        var color = history_colors[Object.keys(history_series_raw).length % history_colors.length];
+        history_series_raw[run_id] = {
+            label: run_id.replace(".jsonl", ""),
+            data: points,
+            color: color,
+            draggable: false
+        };
+        plotGraph();
+    }).fail(function() {
+        showNotice('error', "<b>History unavailable:</b> failed to load firing data.");
+    });
+}
+
+function clearHistoryRuns() {
+    history_series_raw = {};
+    plotGraph();
 }
 
 function requestPin(action) {
@@ -115,7 +260,7 @@ function updateProfile(id)
     $('#sel_prof_eta').html(job_time);
     $('#sel_prof_cost').html(kwh + ' kWh ('+ currency_type +': '+ cost +')');
     graph.profile.data = profileDataForDisplay(profiles[id]);
-    graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ] , getOptions());
+    plotGraph();
 }
 
 function deleteProfile()
@@ -140,7 +285,7 @@ function deleteProfile()
     $('#e2').select2('val', 0);
     graph.profile.points.show = false;
     graph.profile.draggable = false;
-    graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ], getOptions());
+    plotGraph();
 }
 
 
@@ -204,7 +349,7 @@ function updateProfileTable()
                 graph.profile.data[row][col] = value;
             }
 
-            graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ], getOptions());
+            plotGraph();
             }
             updateProfileTable();
 
@@ -278,8 +423,8 @@ function runTask()
         "pin": pin
     }
 
-    graph.live.data = [];
-    graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ] , getOptions());
+    resetLiveData();
+    plotGraph();
 
     ws_control.send(JSON.stringify(cmd));
 
@@ -293,8 +438,8 @@ function runTaskSimulation()
         "profile": profiles[selected_profile]
     }
 
-    graph.live.data = [];
-    graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ] , getOptions());
+    resetLiveData();
+    plotGraph();
 
     ws_control.send(JSON.stringify(cmd));
 
@@ -337,7 +482,7 @@ function enterNewMode()
     graph.profile.points.show = true;
     graph.profile.draggable = true;
     graph.profile.data = [];
-    graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ], getOptions());
+    plotGraph();
     updateProfileTable();
 }
 
@@ -352,7 +497,7 @@ function enterEditMode()
     $('#form_profile_name').val(profiles[selected_profile].name);
     graph.profile.points.show = true;
     graph.profile.draggable = true;
-    graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ], getOptions());
+    plotGraph();
     updateProfileTable();
     toggleTable();
 }
@@ -369,7 +514,7 @@ function leaveEditMode()
     $('#profile_table').slideUp();
     graph.profile.points.show = false;
     graph.profile.draggable = false;
-    graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ], getOptions());
+    plotGraph();
 }
 
 function newPoint()
@@ -383,14 +528,14 @@ function newPoint()
         var pointx = 0;
     }
     graph.profile.data.push([pointx, Math.floor((Math.random()*230)+25)]);
-    graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ], getOptions());
+    plotGraph();
     updateProfileTable();
 }
 
 function delPoint()
 {
     graph.profile.data.splice(-1,1)
-    graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ], getOptions());
+    plotGraph();
     updateProfileTable();
 }
 
@@ -404,6 +549,13 @@ function toggleTable()
     {
         $('#profile_table').slideUp();
     }
+}
+
+function toggleLive()
+{
+    live_visible = !live_visible;
+    syncLiveSeries();
+    plotGraph();
 }
 
 function saveProfile()
@@ -539,6 +691,7 @@ function getOptions()
 
 $(document).ready(function()
 {
+    $('[data-toggle="tooltip"]').tooltip();
 
     if(!("WebSocket" in window))
     {
@@ -610,8 +763,8 @@ $(document).ready(function()
                 }
 
                 $.each(x.log, function(i,v) {
-                    graph.live.data.push([v.runtime, toDisplayTemp(v.temperature)]);
-                    graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ] , getOptions());
+                    addLivePoint(v.runtime, toDisplayTemp(v.temperature));
+                    plotGraph();
                 });
             }
 
@@ -644,8 +797,8 @@ $(document).ready(function()
                     $("#nav_stop").show();
                     $("#nav_shutdown").hide();
 
-                    graph.live.data.push([x.runtime, toDisplayTemp(x.temperature)]);
-                    graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ] , getOptions());
+                    addLivePoint(x.runtime, toDisplayTemp(x.temperature));
+                    plotGraph();
 
                     left = parseInt(x.totaltime-x.runtime);
                     eta = new Date(left * 1000).toISOString().substr(11, 8);
@@ -723,6 +876,7 @@ $(document).ready(function()
                     time_scale_long = "Hours";
                     break;
             }
+            plotGraph();
 
         }
 
@@ -748,8 +902,8 @@ $(document).ready(function()
                 return;
             }
             if (x.runtime !== undefined && x.temperature !== undefined) {
-                graph.live.data.push([x.runtime, toDisplayTemp(x.temperature)]);
-                graph.plot = $.plot("#graph_container", [ graph.profile, graph.live ] , getOptions());
+                addLivePoint(x.runtime, toDisplayTemp(x.temperature));
+                plotGraph();
             }
             if (x.resp == "FAIL" && x.error) {
                 showNotice('error', "<b>Command failed:</b> " + x.error);
@@ -828,11 +982,20 @@ $(document).ready(function()
             minimumResultsForSearch: -1
         });
 
+        $("#history_select").select2(
+        {
+            placeholder: "Select firing",
+            allowClear: true,
+            minimumResultsForSearch: -1
+        });
+
 
         $("#e2").on("change", function(e)
         {
             updateProfile(e.val);
         });
+
+        setHistoryMode(false);
 
     }
 });

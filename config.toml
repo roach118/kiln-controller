@@ -63,7 +63,7 @@ thermocouple_offset = 0
 # Number of samples per duty cycle for temperature smoothing.
 temperature_average_samples = 10
 # Temperature display unit for the UI only (internal is always C).
-temp_scale = "f"
+temp_scale = "c"
 # Slope display time base: s, m, or h.
 time_scale_slope = "h"
 # Profile entry display time base: s, m, or h.
@@ -119,6 +119,14 @@ automatic_restart_state_file = "state.json"
 [profiles] # CONFIG.profiles
 # Directory containing profile JSON files (relative to config.toml by default).
 kiln_profiles_directory = "storage/profiles"
+
+[history] # CONFIG.history
+# Enable history logging per firing (JSONL file per run).
+enabled = true
+# History log tick interval in seconds.
+tick_seconds = 30
+# Directory for history logs (relative to config.toml by default).
+directory = "storage/history"
 
 [security] # CONFIG.security
 # PIN required to start or shut down the kiln (numeric value).

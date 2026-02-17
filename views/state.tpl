@@ -3,7 +3,7 @@
 <head>
  <title>Kiln Controller</title>
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <link rel="stylesheet" href="assets/css/state.css"/>
+ <link rel="stylesheet" href="/assets/css/state.css"/>
 </head>
 <body>
 
@@ -69,6 +69,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js" charset="utf-8"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/tabulator/5.6.1/css/tabulator.min.css" rel="stylesheet">
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/tabulator/5.6.1/js/tabulator.min.js"></script>
-<script src="assets/js/state.js"></script>
+<script src="/assets/js/state.js"></script>
 </body>
 </html>

@@ -44,11 +44,11 @@ oven.set_ovenwatcher(ovenWatcher)
 
 @app.route('/')
 def index():
-    return bottle.redirect('/picoreflow/index.html')
+    return bottle.template('index')
 
 @app.route('/state')
 def state():
-    return bottle.redirect('/picoreflow/state.html')
+    return bottle.template('state')
 
 @app.get('/api/stats')
 def handle_api():
@@ -56,6 +56,35 @@ def handle_api():
     if hasattr(oven,'pid'):
         if hasattr(oven.pid,'pidstats'):
             return json.dumps(oven.pid.pidstats)
+
+
+@app.get('/api/history')
+def handle_history_list():
+    log.info("/api/history command received")
+    history_dir = CONFIG.history.directory
+    if not CONFIG.history.enabled:
+        return json.dumps({"enabled": False, "runs": []})
+    try:
+        files = [f for f in os.listdir(history_dir) if f.endswith(".jsonl")]
+    except FileNotFoundError:
+        files = []
+    files.sort(reverse=True)
+    return json.dumps({"enabled": True, "runs": files})
+
+
+@app.get('/api/history/<run_id>')
+def handle_history_run(run_id):
+    log.info("/api/history/%s command received" % run_id)
+    if not CONFIG.history.enabled:
+        return abort(404, "history disabled")
+    if not run_id.endswith(".jsonl"):
+        run_id = run_id + ".jsonl"
+    safe_name = os.path.basename(run_id)
+    history_dir = CONFIG.history.directory
+    filepath = os.path.join(history_dir, safe_name)
+    if not os.path.isfile(filepath):
+        return abort(404, "history not found")
+    return bottle.static_file(safe_name, root=history_dir, mimetype="application/x-ndjson")
 
 
 @app.post('/api')
@@ -144,10 +173,12 @@ def find_profile(wanted):
             return profile
     return None
 
-@app.route('/picoreflow/:filename#.*#')
-def send_static(filename):
-    log.debug("serving %s" % filename)
-    return bottle.static_file(filename, root=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "public"))
+@app.route('/assets/:filename#.*#')
+def send_assets(filename):
+    log.debug("serving asset %s" % filename)
+    return bottle.static_file(filename, root=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "public", "assets"))
+
+
 
 
 def get_websocket_from_request():

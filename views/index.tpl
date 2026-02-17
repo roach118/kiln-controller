@@ -5,21 +5,21 @@
  <title>Kiln Controller</title>
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
- <script src="assets/js/jquery-1.10.2.min.js"></script>
- <script src="assets/js/jquery.event.drag-2.2.js"></script>
- <script src="assets/js/jquery.flot.js"></script>
- <script src="assets/js/jquery.flot.resize.js"></script>
- <script src="assets/js/jquery.flot.draggable.js"></script>
- <script src="assets/js/bootstrap.min.js"></script>
- <script src="assets/js/jquery.bootstrap-growl.min.js"></script>
- <script src="assets/js/select2.min.js"></script>
- <script src="assets/js/picoreflow.js"></script>
+ <script src="/assets/js/jquery-1.10.2.min.js"></script>
+ <script src="/assets/js/jquery.event.drag-2.2.js"></script>
+ <script src="/assets/js/jquery.flot.js"></script>
+ <script src="/assets/js/jquery.flot.resize.js"></script>
+ <script src="/assets/js/jquery.flot.draggable.js"></script>
+ <script src="/assets/js/bootstrap.min.js"></script>
+ <script src="/assets/js/jquery.bootstrap-growl.min.js"></script>
+ <script src="/assets/js/select2.min.js"></script>
+ <script src="/assets/js/ui.js"></script>
 
- <link rel="stylesheet" href="assets/css/bootstrap.min.css"/>
- <link rel="stylesheet" href="assets/css/bootstrap-theme.min.css"/>
- <link rel="stylesheet" href="assets/css/bootstrap-modal.css"/>
- <link rel="stylesheet" href="assets/css/select2.css"/>
- <link rel="stylesheet" href="assets/css/picoreflow.css"/>
+ <link rel="stylesheet" href="/assets/css/bootstrap.min.css"/>
+ <link rel="stylesheet" href="/assets/css/bootstrap-theme.min.css"/>
+ <link rel="stylesheet" href="/assets/css/bootstrap-modal.css"/>
+ <link rel="stylesheet" href="/assets/css/select2.css"/>
+ <link rel="stylesheet" href="/assets/css/ui.css"/>
 
 </head>
 <body>
@@ -40,7 +40,7 @@
     <div class="display ds-num ds-heat-rate"><span id="heat_rate">---</span><span class="ds-unit" id="heat_rate_temp_scale">&deg;C</span></div>
     <div class="display ds-num ds-cost"><span id="cost">0.00</span><span class="ds-unit" id="cost"></span></div>
     <div class="display ds-num ds-text" id="state"></div>
-    <div class="display pull-right ds-state" style="padding-right:0"><span class="ds-led" id="heat">&#92;</span><span class="ds-led" id="cool">&#108;</span><span class="ds-led" id="air">&#91;</span><span class="ds-led" id="hazard">&#73;</span><span class="ds-led" id="door">&#9832;</span></div>
+    <div class="display pull-right ds-state" style="padding-right:0"><span class="ds-led" id="heat" title="Heating active" data-toggle="tooltip">&#92;</span><span class="ds-led" id="cool" title="Cooling active (placeholder)" data-toggle="tooltip">&#108;</span><span class="ds-led" id="air" title="Air circulation active (placeholder)" data-toggle="tooltip">&#91;</span><span class="ds-led" id="hazard" title="Overheat warning" data-toggle="tooltip">&#73;</span><span class="ds-led" id="door" title="Door open/unknown (placeholder)" data-toggle="tooltip">&#9832;</span></div>
    </div>
    <div class="clearfix"></div>
    <div>
@@ -55,42 +55,53 @@
    <div class="panel-heading">
     <div id="profile_selector" class="pull-left">
      <select id="e2" class="select2" style="margin-top: 4px"></select>
-     <button id="btn_edit" type="button" class="btn btn-default" onclick="enterEditMode()"><span class="glyphicon glyphicon-edit"></span></button>
-     <button id="btn_new" type="button" class="btn btn-default" onclick="enterNewMode(selected_profile)"><span class="glyphicon glyphicon-plus"></span></button>
+     <button id="btn_edit" type="button" class="btn btn-default" onclick="enterEditMode()" title="Edit selected profile" data-toggle="tooltip"><span class="glyphicon glyphicon-edit"></span></button>
+     <button id="btn_new" type="button" class="btn btn-default" onclick="enterNewMode(selected_profile)" title="Create new profile" data-toggle="tooltip"><span class="glyphicon glyphicon-plus"></span></button>
     </div>
    <div id="btn_controls" class="pull-right" style="margin-top: 3px">
     <div id="nav_start" class="btn-group" style="display:none">
-     <button type="button" class="btn btn-default" style="visibility: hidden;"  onclick="runTaskSimulation();">Simulate</button>
-     <button type="button" class="btn btn-success" data-toggle="modal" data-target="#jobSummaryModal"><span class="glyphicon glyphicon-play"></span> Start</button>
+     <button type="button" class="btn btn-default" style="visibility: hidden;"  onclick="runTaskSimulation();" title="Simulate run" data-toggle="tooltip">Simulate</button>
+     <button type="button" class="btn btn-success" data-toggle="modal" data-target="#jobSummaryModal" title="Start selected profile" data-toggle="tooltip"><span class="glyphicon glyphicon-play"></span> Start</button>
     </div>
-    <button id="nav_shutdown" type="button" class="btn btn-warning" onclick="shutdownTask()" style="display:none" ><span class="glyphicon glyphicon-off"></span> Shutdown</button>
-    <button id="nav_stop" type="button" class="btn btn-danger" onclick="abortTask()" style="display:none" ><span class="glyphicon glyphicon-stop"></span> Stop</button>
+    <button id="nav_shutdown" type="button" class="btn btn-warning" onclick="shutdownTask()" style="display:none" title="Shut down controller" data-toggle="tooltip"><span class="glyphicon glyphicon-off"></span> Shutdown</button>
+    <button id="nav_stop" type="button" class="btn btn-danger" onclick="abortTask()" style="display:none" title="Stop current run" data-toggle="tooltip"><span class="glyphicon glyphicon-stop"></span> Stop</button>
    </div>
     <div id="edit" style="display:none;">
      <div class="input-group">
       <span class="input-group-addon">Schedule Name</span>
       <input id="form_profile_name" type="text" class="form-control" />
       <span class="input-group-btn">
-        <button class="btn btn-success" type="button" onclick="saveProfile();">Save</button>
-        <button id="btn_exit" type="button" class="btn btn-default" onclick="leaveEditMode()"><span class="glyphicon glyphicon-remove"></span></button>
+        <button class="btn btn-success" type="button" onclick="saveProfile();" title="Save profile" data-toggle="tooltip">Save</button>
+        <button id="btn_exit" type="button" class="btn btn-default" onclick="leaveEditMode()" title="Exit editor" data-toggle="tooltip"><span class="glyphicon glyphicon-remove"></span></button>
       </span>
      </div>
      <div class="btn-group btn-group-sm" style="margin-top: 10px">
-      <button id="btn_newPoint" type="button" class="btn btn-default" onclick="newPoint()"><span class="glyphicon glyphicon-plus"></span></button>
-      <button id="btn_delPoint" type="button" class="btn btn-default" onclick="delPoint()"><span class="glyphicon glyphicon-minus"></span></button>
+      <button id="btn_newPoint" type="button" class="btn btn-default" onclick="newPoint()" title="Add schedule point" data-toggle="tooltip"><span class="glyphicon glyphicon-plus"></span></button>
+      <button id="btn_delPoint" type="button" class="btn btn-default" onclick="delPoint()" title="Remove last schedule point" data-toggle="tooltip"><span class="glyphicon glyphicon-minus"></span></button>
      </div>
      <div class="btn-group btn-group-sm" style="margin-top: 10px">
-      <button id="btn_table" type="button" class="btn btn-default" onclick="toggleTable()"><span class="glyphicon glyphicon-list"></span></button>
-      <button id="btn_live" type="button" class="btn btn-default" onclick="toggleLive()"><span class="glyphicon glyphicon-eye-open"></span></button>
+      <button id="btn_table" type="button" class="btn btn-default" onclick="toggleTable()" title="Toggle schedule table" data-toggle="tooltip"><span class="glyphicon glyphicon-list"></span></button>
+      <button id="btn_live" type="button" class="btn btn-default" onclick="toggleLive()" title="Toggle live view" data-toggle="tooltip"><span class="glyphicon glyphicon-eye-open"></span></button>
      </div>
      <div class="btn-group btn-group-sm" style="margin-top: 10px">
-      <button id="btn_delProfile" type="button" class="btn btn-danger" data-toggle="modal" data-target="#delProfileModal"><span class="glyphicon glyphicon-trash"></span></button>
+      <button id="btn_delProfile" type="button" class="btn btn-danger" data-toggle="modal" data-target="#delProfileModal" title="Delete selected profile" data-toggle="tooltip"><span class="glyphicon glyphicon-trash"></span></button>
      </div>
     </div>
    </div>
    <div class="panel-body">
-    <div id="graph_container" class="graph"></div>
-   </div>
+   <div id="graph_container" class="graph"></div>
+    <div id="history_controls" class="clearfix" style="margin-top: 10px;">
+     <div class="btn-group">
+      <button id="btn_live_view" type="button" class="btn btn-primary" onclick="setHistoryMode(false)" title="Show live run data" data-toggle="tooltip">Live</button>
+      <button id="btn_history_view" type="button" class="btn btn-default" onclick="setHistoryMode(true)" title="Compare past firings" data-toggle="tooltip">History</button>
+     </div>
+     <div id="history_picker" class="pull-right" style="display:none">
+      <select id="history_select" class="select2" style="width: 260px"></select>
+      <button type="button" class="btn btn-default" onclick="addSelectedHistoryRun()" title="Add selected firing to the chart" data-toggle="tooltip"><span class="glyphicon glyphicon-plus"></span></button>
+      <button type="button" class="btn btn-default" onclick="clearHistoryRuns()" title="Clear all history runs" data-toggle="tooltip"><span class="glyphicon glyphicon-trash"></span></button>
+     </div>
+    </div>
+  </div>
    <div id="profile_table" class="panel-footer" style="display:none;"></div>
   </div>
  </div>

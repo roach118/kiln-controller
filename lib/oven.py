@@ -9,6 +9,7 @@ import digitalio
 import busio
 import adafruit_bitbangio as bitbangio
 import statistics
+from history import HistoryLogger
 
 log = logging.getLogger(__name__)
 
@@ -329,6 +330,7 @@ class Oven(threading.Thread):
         self.daemon = True
         self.temperature = 0
         self.time_step = CONFIG.run.sensor_time_wait
+        self.history = HistoryLogger(CONFIG)
         self.reset()
 
     def reset(self):
@@ -393,8 +395,10 @@ class Oven(threading.Thread):
         self.state = "RUNNING"
         log.info("Running schedule %s starting at %d minutes" % (profile.name,startat))
         log.info("Starting")
+        self.history.start_run(profile, startat, self.get_history_config_snapshot())
 
-    def abort_run(self):
+    def abort_run(self, reason="aborted"):
+        self.history.end_run(reason)
         self.reset()
         self.save_automatic_restart_state()
 
@@ -438,18 +442,18 @@ class Oven(threading.Thread):
             CONFIG.run.emergency_shutoff_temp):
             log.info("emergency!!! temperature too high")
             if CONFIG.run.ignore_temp_too_high == False:
-                self.abort_run()
+                self.abort_run("emergency")
         
         if self.board.temp_sensor.status.over_error_limit():
             log.info("emergency!!! too many errors in a short period")
             if CONFIG.thermocouple.ignore_tc_too_many_errors == False:
-                self.abort_run()
+                self.abort_run("emergency")
 
     def reset_if_schedule_ended(self):
         if self.runtime > self.totaltime:
             log.info("schedule ended, shutting down")
             log.info("total cost = %s%.2f" % (CONFIG.cost.currency_type,self.cost))
-            self.abort_run()
+            self.abort_run("completed")
 
     def update_cost(self):
         if self.heat:
@@ -486,6 +490,19 @@ class Oven(threading.Thread):
             'catching_up': self.catching_up,
         }
         return state
+
+    def get_history_config_snapshot(self):
+        return {
+            "temp_scale": CONFIG.run.temp_scale,
+            "pid": {"kp": CONFIG.pid.kp, "ki": CONFIG.pid.ki, "kd": CONFIG.pid.kd},
+            "safety": {
+                "heating_stall_enabled": CONFIG.safety.heating_stall_enabled,
+                "heating_stall_window_seconds": CONFIG.safety.heating_stall_window_seconds,
+                "heating_stall_min_temp_rise": CONFIG.safety.heating_stall_min_temp_rise,
+                "heating_stall_min_heater_output": CONFIG.safety.heating_stall_min_heater_output,
+                "heating_stall_min_target_delta": CONFIG.safety.heating_stall_min_target_delta,
+            },
+        }
 
     def reset_heating_progress(self):
         self.heat_check_time = None
