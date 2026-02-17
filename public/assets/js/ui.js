@@ -119,6 +119,14 @@ function refreshHistoryList() {
         $('#history_select').find('option').remove().end();
         if (!history_enabled) {
             $('#history_select').append('<option value="">History disabled</option>');
+            if (history_mode) {
+                history_mode = false;
+                $("#history_picker").hide();
+                $("#btn_live_view").addClass("btn-primary").removeClass("btn-default");
+                $("#btn_history_view").addClass("btn-default").removeClass("btn-primary");
+                showNotice('error', "<b>History disabled:</b> enable history logging in config.");
+            }
+            plotGraph();
             return;
         }
         if (history_runs.length === 0) {
@@ -806,7 +814,7 @@ $(document).ready(function()
                     updateProgress(parseFloat(x.runtime)/parseFloat(x.totaltime)*100);
                     $('#state').html('<span class="glyphicon glyphicon-time" style="font-size: 22px; font-weight: normal"></span><span style="font-family: Digi; font-size: 40px;">' + eta + '</span>');
                     $('#target_temp').html(parseInt(toDisplayTemp(x.target)));
-                    $('#cost').html(x.currency_type + parseFloat(x.cost).toFixed(2));
+    $('#cost_value').html(x.currency_type + parseFloat(x.cost).toFixed(2));
                   
 
 

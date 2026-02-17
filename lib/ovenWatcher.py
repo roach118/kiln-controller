@@ -1,11 +1,13 @@
 import threading,logging,json,time,datetime
+from collections import deque
+from config import CONFIG
 from oven import Oven
 log = logging.getLogger(__name__)
 
 class OvenWatcher(threading.Thread):
     def __init__(self,oven):
         self.last_profile = None
-        self.last_log = []
+        self.last_log = deque(maxlen=CONFIG.run.backlog_max_points)
         self.started = None
         self.recording = False
         self.observers = []
@@ -39,15 +41,37 @@ class OvenWatcher(threading.Thread):
 
     def lastlog_subset(self,maxpts=50):
         '''send about maxpts from lastlog by skipping unwanted data'''
-        totalpts = len(self.last_log)
+        last_log = list(self.last_log)
+        totalpts = len(last_log)
         if (totalpts <= maxpts):
-            return self.last_log
-        every_nth = int(totalpts / (maxpts - 1))
-        return self.last_log[::every_nth]
+            return last_log
+        last_runtime = last_log[-1].get("runtime")
+        if last_runtime is None:
+            every_nth = int(totalpts / (maxpts - 1))
+            return last_log[::every_nth]
+
+        recent_cutoff = last_runtime - CONFIG.run.backlog_older_window_seconds
+        older_interval = CONFIG.run.backlog_older_sample_seconds
+        older_selected = []
+        recent_selected = []
+        last_older_runtime = None
+
+        for entry in last_log:
+            runtime = entry.get("runtime")
+            if runtime is None:
+                continue
+            if runtime < recent_cutoff:
+                if last_older_runtime is None or (runtime - last_older_runtime) >= older_interval:
+                    older_selected.append(entry)
+                    last_older_runtime = runtime
+            else:
+                recent_selected.append(entry)
+
+        return older_selected + recent_selected
 
     def record(self, profile):
         self.last_profile = profile
-        self.last_log = []
+        self.last_log = deque(maxlen=CONFIG.run.backlog_max_points)
         self.started = datetime.datetime.now()
         self.recording = True
         #we just turned on, add first state for nice graph

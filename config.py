@@ -132,6 +132,9 @@ class RunConfig:
     pid_control_window: float
     thermocouple_offset: float
     temperature_average_samples: int
+    backlog_max_points: int
+    backlog_older_window_seconds: float
+    backlog_older_sample_seconds: float
     temp_scale: str
     time_scale_slope: str
     time_scale_profile: str
@@ -228,10 +231,18 @@ class AppConfig:
             missing.append("thermocouple.type")
         if self.run.temperature_average_samples < 1:
             raise ValueError("run.temperature_average_samples must be >= 1")
+        if self.run.backlog_max_points < 1:
+            raise ValueError("run.backlog_max_points must be >= 1")
+        if self.run.backlog_older_window_seconds < 0:
+            raise ValueError("run.backlog_older_window_seconds must be >= 0")
+        if self.run.backlog_older_sample_seconds <= 0:
+            raise ValueError("run.backlog_older_sample_seconds must be > 0")
         if self.run.pid_control_window <= 0:
             raise ValueError("run.pid_control_window must be > 0")
         if self.run.throttle_percent < 0 or self.run.throttle_percent > 100:
             raise ValueError("run.throttle_percent must be between 0 and 100")
+        if self.simulation.speedup_factor <= 0:
+            raise ValueError("simulation.speedup_factor must be > 0")
         if self.history.enabled and self.history.tick_seconds <= 0:
             raise ValueError("history.tick_seconds must be > 0")
         if missing:
@@ -286,6 +297,11 @@ class AppConfig:
             print("config: hardware pins unavailable, forcing simulation mode")
             simulate = True
 
+        speedup_factor = float(simulation_cfg.get("sim_speedup_factor", 1))
+        if speedup_factor <= 0:
+            print("config: sim_speedup_factor must be > 0, defaulting to 1")
+            speedup_factor = 1.0
+
         return cls(
             logging=LoggingConfig(
                 level=_log_level(logging_cfg.get("level", "INFO")),
@@ -327,6 +343,9 @@ class AppConfig:
                 pid_control_window=float(run_cfg.get("pid_control_window", 5)),
                 thermocouple_offset=float(run_cfg.get("thermocouple_offset", 0)),
                 temperature_average_samples=int(run_cfg.get("temperature_average_samples", 10)),
+                backlog_max_points=int(run_cfg.get("backlog_max_points", 5000)),
+                backlog_older_window_seconds=float(run_cfg.get("backlog_older_window_seconds", 7200)),
+                backlog_older_sample_seconds=float(run_cfg.get("backlog_older_sample_seconds", 30)),
                 temp_scale=run_cfg.get("temp_scale", "f"),
                 time_scale_slope=run_cfg.get("time_scale_slope", "h"),
                 time_scale_profile=run_cfg.get("time_scale_profile", "m"),
@@ -351,7 +370,7 @@ class AppConfig:
                 R_o_cool=float(simulation_cfg.get("sim_R_o_cool", 0)),
                 R_ho_noair=float(simulation_cfg.get("sim_R_ho_noair", 0)),
                 R_ho_air=float(simulation_cfg.get("sim_R_ho_air", 0)),
-                speedup_factor=float(simulation_cfg.get("sim_speedup_factor", 1)),
+                speedup_factor=speedup_factor,
             ),
             restart=RestartConfig(
                 automatic_restarts=bool(restart_cfg.get("automatic_restarts", True)),

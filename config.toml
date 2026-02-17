@@ -62,6 +62,12 @@ pid_control_window = 2.78
 thermocouple_offset = 0
 # Number of samples per duty cycle for temperature smoothing.
 temperature_average_samples = 10
+# Max number of live points kept in memory for reconnect/backlog.
+backlog_max_points = 5000
+# Recent window (seconds) that keeps full-resolution live points.
+backlog_older_window_seconds = 7200
+# Downsample older points to this interval (seconds).
+backlog_older_sample_seconds = 30
 # Temperature display unit for the UI only (internal is always C).
 temp_scale = "c"
 # Slope display time base: s, m, or h.
