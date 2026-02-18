@@ -3,6 +3,7 @@ import time
 import datetime
 import logging
 import json
+import atexit
 from config import CONFIG
 import os
 import digitalio
@@ -12,6 +13,7 @@ import statistics
 from history import HistoryLogger
 
 log = logging.getLogger(__name__)
+SSR_TRANSITION_TIME = None
 
 class DupFilter(object):
     def __init__(self):
@@ -41,19 +43,42 @@ class Output(object):
     '''
     def __init__(self):
         self.active = False
-        self.heater = digitalio.DigitalInOut(CONFIG.hardware.gpio_heat) 
+        self.heater = digitalio.DigitalInOut(CONFIG.hardware.gpio_heat)
         self.heater.direction = digitalio.Direction.OUTPUT 
         self.off = CONFIG.hardware.gpio_heat_invert
         self.on = not self.off
+        self.heater.value = self.off
+        self.current_value = self.off
+        # Live hardware safety: ensure SSR off on process exit.
+        atexit.register(self.safe_off)
+
+    def set_output(self, value):
+        self._set_output(value)
 
     def heat(self,sleepfor):
-        self.heater.value = self.on
+        self._set_output(self.on)
         time.sleep(sleepfor)
 
     def cool(self,sleepfor):
         '''no active cooling, so sleep'''
-        self.heater.value = self.off
+        self._set_output(self.off)
         time.sleep(sleepfor)
+
+    def safe_off(self):
+        '''live hardware safety: force SSR off without sleeping'''
+        try:
+            self._set_output(self.off)
+        except Exception:
+            log.exception("failed to force SSR off")
+
+    def _set_output(self, value):
+        global SSR_TRANSITION_TIME
+        if value != self.current_value:
+            self.heater.value = value
+            self.current_value = value
+            SSR_TRANSITION_TIME = time.time()
+        else:
+            self.heater.value = value
 
 # wrapper for blinka board
 class Board(object):
@@ -103,6 +128,11 @@ class TempSensor(threading.Thread):
         self.daemon = True
         self.time_step = CONFIG.run.sensor_time_wait
         self.status = ThermocoupleTracker()
+        self.last_ok_time = None
+        self.last_temp = None
+        self.last_temp_time = None
+        self.anomaly_window = []
+        self.fatal_reason = None
 
 class TempSensorSimulated(TempSensor):
     '''Simulates a temperature sensor '''
@@ -110,7 +140,11 @@ class TempSensorSimulated(TempSensor):
         TempSensor.__init__(self)
         self.simulated_temperature = CONFIG.simulation.t_env
     def temperature(self):
-        return self.simulated_temperature
+        temp = self.simulated_temperature
+        self._accept_temp(temp)
+        self.last_ok_time = time.time()
+        self.status.good()
+        return temp
 
 class TempSensorReal(TempSensor):
     '''real temperature sensor that takes many measurements
@@ -126,9 +160,10 @@ class TempSensorReal(TempSensor):
         self.cs = digitalio.DigitalInOut(CONFIG.hardware.spi_cs)
 
     def spi_setup(self):
-        if(hasattr(config,'spi_sclk') and
-           hasattr(config,'spi_mosi') and
-           hasattr(config,'spi_miso')):
+        # Live hardware only: use configured SPI pins when available.
+        if (CONFIG.hardware.spi_sclk is not None and
+            CONFIG.hardware.spi_mosi is not None and
+            CONFIG.hardware.spi_miso is not None):
             self.spi = bitbangio.SPI(CONFIG.hardware.spi_sclk, CONFIG.hardware.spi_mosi, CONFIG.hardware.spi_miso)
             log.info("Software SPI selected for reading thermocouple")
         else:
@@ -138,9 +173,17 @@ class TempSensorReal(TempSensor):
 
     def get_temperature(self):
         '''read temp from tc'''
+        # Live hardware only: ignore reads near SSR transitions.
+        quiet_window = CONFIG.run.ssr_quiet_window_ms / 1000.0
+        if quiet_window > 0 and SSR_TRANSITION_TIME:
+            if 0 <= (time.time() - SSR_TRANSITION_TIME) <= quiet_window:
+                return None
         try:
             temp = self.raw_temp() # raw_temp provided by subclasses
+            if not self._accept_temp(temp):
+                return None
             self.status.good()
+            self.last_ok_time = time.time()
             return temp
         except ThermocoupleError as tce:
             if tce.ignore:
@@ -150,6 +193,44 @@ class TempSensorReal(TempSensor):
                 log.error("Problem reading temp %s" % (tce.message))
                 self.status.bad()
         return None
+
+    def _accept_temp(self, temp):
+        max_ramp = CONFIG.run.temp_ramp_max_c_per_sec
+        if max_ramp <= 0:
+            return True
+        now = time.time()
+        if self.last_temp is None or self.last_temp_time is None:
+            self.last_temp = temp
+            self.last_temp_time = now
+            self._record_anomaly(False)
+            return True
+        dt = now - self.last_temp_time
+        if dt <= 0:
+            self.last_temp = temp
+            self.last_temp_time = now
+            self._record_anomaly(False)
+            return True
+        ramp = abs(temp - self.last_temp) / dt
+        if ramp > max_ramp:
+            self._record_anomaly(True)
+            log.warning("discarding temp reading: ramp %.2f C/s exceeds %.2f", ramp, max_ramp)
+            return False
+        self.last_temp = temp
+        self.last_temp_time = now
+        self._record_anomaly(False)
+        return True
+
+    def _record_anomaly(self, is_anomaly):
+        window = CONFIG.run.temp_ramp_anomaly_window
+        max_anomalies = CONFIG.run.temp_ramp_anomaly_max
+        self.anomaly_window.append(is_anomaly)
+        if len(self.anomaly_window) > window:
+            self.anomaly_window = self.anomaly_window[-window:]
+        if max_anomalies <= 0:
+            return
+        if sum(1 for entry in self.anomaly_window if entry) > max_anomalies:
+            log.error("too many ramp anomalies; marking sensor fault")
+            self.fatal_reason = "sensor_ramp_anomaly"
 
     def temperature(self):
         '''average temp over a duty cycle'''
@@ -331,6 +412,7 @@ class Oven(threading.Thread):
         self.temperature = 0
         self.time_step = CONFIG.run.sensor_time_wait
         self.history = HistoryLogger(CONFIG)
+        self.last_abort_reason = None
         self.reset()
 
     def reset(self):
@@ -348,6 +430,15 @@ class Oven(threading.Thread):
         self.catching_up = False
         self.heat_check_time = None
         self.heat_check_temp = None
+        self.loop_last_tick = time.time()
+        self.safe_start_time = None
+        self.safe_start_good = 0
+        sensor = getattr(self.board, "temp_sensor", None)
+        if sensor:
+            sensor.fatal_reason = None
+            sensor.anomaly_window = []
+            sensor.last_temp = None
+            sensor.last_temp_time = None
 
     @staticmethod
     def get_start_from_temperature(profile, temp):
@@ -393,11 +484,16 @@ class Oven(threading.Thread):
         self.profile = profile
         self.totaltime = profile.get_duration()
         self.state = "RUNNING"
+        self.last_abort_reason = None
+        self.safe_start_time = time.time()
+        self.safe_start_good = 0
         log.info("Running schedule %s starting at %d minutes" % (profile.name,startat))
         log.info("Starting")
         self.history.start_run(profile, startat, self.get_history_config_snapshot())
 
     def abort_run(self, reason="aborted"):
+        log.error("aborting run: %s", reason)
+        self.last_abort_reason = reason
         self.history.end_run(reason)
         self.reset()
         self.save_automatic_restart_state()
@@ -472,6 +568,9 @@ class Oven(threading.Thread):
             pass
 
         self.set_heat_rate(self.runtime,temp)
+        self.check_loop_watchdog()
+        self.check_sensor_stale()
+        self.check_sensor_faults()
         self.check_heating_progress(temp)
 
         state = {
@@ -488,6 +587,7 @@ class Oven(threading.Thread):
             'profile': self.profile.name if self.profile else None,
             'pidstats': self.pid.pidstats,
             'catching_up': self.catching_up,
+            'abort_reason': self.last_abort_reason,
         }
         return state
 
@@ -507,6 +607,68 @@ class Oven(threading.Thread):
     def reset_heating_progress(self):
         self.heat_check_time = None
         self.heat_check_temp = None
+
+    def check_sensor_stale(self):
+        if self.state != "RUNNING":
+            return
+        timeout = CONFIG.run.sensor_stale_timeout_seconds
+        if timeout <= 0:
+            return
+        last_ok = getattr(self.board.temp_sensor, "last_ok_time", None)
+        if last_ok is None:
+            return
+        if (time.time() - last_ok) > timeout:
+            log.error(
+                "sensor stale for %.1fs (timeout %.1fs, last_ok=%s); aborting run",
+                time.time() - last_ok,
+                timeout,
+                datetime.datetime.fromtimestamp(last_ok).isoformat(timespec="seconds"),
+            )
+            self.abort_run("sensor_stale")
+
+    def check_sensor_faults(self):
+        if self.state != "RUNNING":
+            return
+        reason = getattr(self.board.temp_sensor, "fatal_reason", None)
+        if reason:
+            log.error("sensor fault detected: %s", reason)
+            self.abort_run(reason)
+
+    def check_loop_watchdog(self):
+        if self.state != "RUNNING":
+            return
+        timeout = CONFIG.run.loop_watchdog_timeout_seconds
+        if timeout <= 0:
+            return
+        now = time.time()
+        if (now - self.loop_last_tick) > timeout:
+            log.error("control loop stalled for %.1fs; aborting run", now - self.loop_last_tick)
+            self.abort_run("loop_stalled")
+
+    def sleep_with_abort(self, duration):
+        end = time.time() + max(0, duration)
+        while time.time() < end:
+            if self.state not in ("RUNNING", "PAUSED"):
+                return False
+            time.sleep(min(0.1, end - time.time()))
+        return True
+
+    def safe_start_ready(self):
+        required = CONFIG.run.safe_start_min_good_samples
+        if required <= 0:
+            return True
+        timeout = CONFIG.run.safe_start_timeout_seconds
+        if timeout > 0 and self.safe_start_time:
+            if (time.time() - self.safe_start_time) > timeout:
+                log.error("safe start timed out; aborting run")
+                self.abort_run("safe_start_timeout")
+                return False
+        last_ok = getattr(self.board.temp_sensor, "last_ok_time", None)
+        if last_ok and (time.time() - last_ok) <= CONFIG.run.sensor_time_wait * 2:
+            self.safe_start_good += 1
+        else:
+            self.safe_start_good = 0
+        return self.safe_start_good >= required
 
     def check_heating_progress(self, temp):
         if not CONFIG.safety.heating_stall_enabled:
@@ -606,6 +768,7 @@ class Oven(threading.Thread):
     def run(self):
         while True:
             log.debug('Oven running on ' + threading.current_thread().name)
+            self.loop_last_tick = time.time()
             if self.state == "IDLE":
                 if self.should_i_automatic_restart() == True:
                     self.automatic_restart()
@@ -692,6 +855,10 @@ class SimulatedOven(Oven):
 
     def heat_then_cool(self):
         now_simulator = self.start_time + datetime.timedelta(milliseconds = self.runtime * 1000)
+        if not self.safe_start_ready():
+            self.heat = 0.0
+            self.sleep_with_abort(self.time_step / self.speedup_factor)
+            return
         pid = self.pid.compute(self.target,
                                self.board.temp_sensor.temperature() +
                                CONFIG.run.thermocouple_offset, now_simulator)
@@ -734,7 +901,7 @@ class SimulatedOven(Oven):
 
         # we don't actually spend time heating & cooling during
         # a simulation, so sleep.
-        time.sleep(self.time_step / self.speedup_factor)
+        self.sleep_with_abort(self.time_step / self.speedup_factor)
 
 
 class RealOven(Oven):
@@ -755,45 +922,80 @@ class RealOven(Oven):
         self.output.cool(0)
 
     def heat_then_cool(self):
-        pid = self.pid.compute(self.target,
-                               self.board.temp_sensor.temperature() +
-                               CONFIG.run.thermocouple_offset, datetime.datetime.now())
-
-        heat_on = float(self.time_step * pid)
-        heat_off = float(self.time_step * (1 - pid))
-
-        # self.heat is for the front end to display if the heat is on
-        self.heat = 0.0
-        if heat_on > 0:
-            self.heat = 1.0
-
-        if heat_on:
-            self.output.heat(heat_on)
-        if heat_off:
-            self.output.cool(heat_off)
-        time_left = self.totaltime - self.runtime
+        # Live hardware safety: ensure SSR turns off on any exception.
         try:
-            log.info("temp=%.2f, target=%.2f, error=%.2f, pid=%.2f, p=%.2f, i=%.2f, d=%.2f, heat_on=%.2f, heat_off=%.2f, run_time=%d, total_time=%d, time_left=%d" %
-                (self.pid.pidstats['ispoint'],
-                self.pid.pidstats['setpoint'],
-                self.pid.pidstats['err'],
-                self.pid.pidstats['pid'],
-                self.pid.pidstats['p'],
-                self.pid.pidstats['i'],
-                self.pid.pidstats['d'],
-                heat_on,
-                heat_off,
-                self.runtime,
-                self.totaltime,
-                time_left))
-        except KeyError:
-            pass
+            if not self.safe_start_ready():
+                self.heat = 0.0
+                self.output.set_output(self.output.off)
+                self.sleep_with_abort(self.time_step)
+                return
+            pid = self.pid.compute(self.target,
+                                   self.board.temp_sensor.temperature() +
+                                   CONFIG.run.thermocouple_offset, datetime.datetime.now())
+
+            heat_on = float(self.time_step * pid)
+            heat_off = float(self.time_step * (1 - pid))
+
+            # self.heat is for the front end to display if the heat is on
+            self.heat = 0.0
+            if heat_on > 0:
+                self.heat = 1.0
+
+            if heat_on:
+                self.output.set_output(self.output.on)
+                if not self.sleep_with_abort(heat_on):
+                    return
+            if heat_off:
+                self.output.set_output(self.output.off)
+                if not self.sleep_with_abort(heat_off):
+                    return
+            time_left = self.totaltime - self.runtime
+            try:
+                log.info("temp=%.2f, target=%.2f, error=%.2f, pid=%.2f, p=%.2f, i=%.2f, d=%.2f, heat_on=%.2f, heat_off=%.2f, run_time=%d, total_time=%d, time_left=%d" %
+                    (self.pid.pidstats['ispoint'],
+                    self.pid.pidstats['setpoint'],
+                    self.pid.pidstats['err'],
+                    self.pid.pidstats['pid'],
+                    self.pid.pidstats['p'],
+                    self.pid.pidstats['i'],
+                    self.pid.pidstats['d'],
+                    heat_on,
+                    heat_off,
+                    self.runtime,
+                    self.totaltime,
+                    time_left))
+            except KeyError:
+                pass
+        except Exception:
+            log.exception("heater control error; aborting run")
+            self.abort_run("heater_error")
+        finally:
+            self.output.safe_off()
 
 class Profile():
     def __init__(self, json_data):
         obj = json.loads(json_data)
         self.name = obj["name"]
         self.data = sorted(obj["data"])
+        self._validate_profile()
+
+    def _validate_profile(self):
+        min_temp = CONFIG.run.profile_min_temp_c
+        max_temp = CONFIG.run.profile_max_temp_c
+        if not self.data:
+            raise ValueError("profile has no points")
+        for idx, point in enumerate(self.data):
+            if len(point) < 2:
+                raise ValueError(f"profile point {idx} missing temperature")
+            temp = point[1]
+            if temp < min_temp:
+                raise ValueError(
+                    f"profile point {idx} temperature {temp} below minimum {min_temp}"
+                )
+            if temp > max_temp:
+                raise ValueError(
+                    f"profile point {idx} temperature {temp} above maximum {max_temp}"
+                )
 
     def get_duration(self):
         return max([t for (t, x) in self.data])
@@ -864,6 +1066,10 @@ class PID():
     # instead of what used to be binary on/off control.
     def compute(self, setpoint, ispoint, now):
         timeDelta = (now - self.lastNow).total_seconds()
+        if timeDelta <= 0:
+            timeDelta = 1e-6
+            self.iterm = 0
+            self.lastErr = 0
 
         window_size = 100
 

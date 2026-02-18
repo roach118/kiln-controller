@@ -5,6 +5,7 @@ import sys
 import csv
 import time
 import argparse
+import statistics
 
 try:
         sys.dont_write_bytecode = True
@@ -174,6 +175,43 @@ def calculate(filename, tangentdivisor, showplot):
     print("pid_kp = %s" % (Kp))
     print("pid_ki = %s" % (1 / Ki))
     print("pid_kd = %s" % (Kd))
+    print("")
+    print("# Suggested safety tuning (place under [run] in config.toml)")
+    if len(xdata) > 1:
+        deltas = [xdata[i] - xdata[i - 1] for i in range(1, len(xdata))]
+        dt = statistics.median([d for d in deltas if d > 0])
+    else:
+        dt = CONFIG.run.sensor_time_wait
+    ramps = []
+    for i in range(1, len(ydata)):
+        dt_i = xdata[i] - xdata[i - 1]
+        if dt_i <= 0:
+            continue
+        ramps.append(abs(ydata[i] - ydata[i - 1]) / dt_i)
+    if ramps:
+        ramps_sorted = sorted(ramps)
+        p95_index = int(0.95 * (len(ramps_sorted) - 1))
+        p95 = ramps_sorted[p95_index]
+        ramp_max = max(1.0, p95 * 2)
+    else:
+        ramp_max = 1.0
+    anomaly_window = int(max(10, round(60 / max(dt, 1e-6))))
+    anomaly_max = int(max(3, round(anomaly_window * 0.2)))
+    loop_watchdog = max(10.0, dt * 5)
+    safe_start_samples = max(3, int(round(6 / max(dt, 1e-6))))
+    safe_start_timeout = max(30.0, safe_start_samples * dt * 3)
+    sensor_stale_timeout = max(30.0, dt * 5)
+
+    print("temp_ramp_max_c_per_sec = %.2f" % (ramp_max))
+    print("temp_ramp_anomaly_window = %d" % (anomaly_window))
+    print("temp_ramp_anomaly_max = %d" % (anomaly_max))
+    print("loop_watchdog_timeout_seconds = %.0f" % (loop_watchdog))
+    print("sensor_stale_timeout_seconds = %.0f" % (sensor_stale_timeout))
+    print("safe_start_min_good_samples = %d" % (safe_start_samples))
+    print("safe_start_timeout_seconds = %.0f" % (safe_start_timeout))
+    print("ssr_quiet_window_ms = %d" % (int(CONFIG.run.ssr_quiet_window_ms)))
+    print("profile_min_temp_c = %d  # adjust for your kiln" % (int(CONFIG.run.profile_min_temp_c)))
+    print("profile_max_temp_c = %d  # adjust for your kiln" % (int(CONFIG.run.profile_max_temp_c)))
 
 
     if showplot:

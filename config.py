@@ -135,6 +135,16 @@ class RunConfig:
     backlog_max_points: int
     backlog_older_window_seconds: float
     backlog_older_sample_seconds: float
+    sensor_stale_timeout_seconds: float
+    ssr_quiet_window_ms: float
+    temp_ramp_max_c_per_sec: float
+    temp_ramp_anomaly_window: int
+    temp_ramp_anomaly_max: int
+    loop_watchdog_timeout_seconds: float
+    profile_min_temp_c: float
+    profile_max_temp_c: float
+    safe_start_min_good_samples: int
+    safe_start_timeout_seconds: float
     temp_scale: str
     time_scale_slope: str
     time_scale_profile: str
@@ -237,6 +247,24 @@ class AppConfig:
             raise ValueError("run.backlog_older_window_seconds must be >= 0")
         if self.run.backlog_older_sample_seconds <= 0:
             raise ValueError("run.backlog_older_sample_seconds must be > 0")
+        if self.run.sensor_stale_timeout_seconds < 0:
+            raise ValueError("run.sensor_stale_timeout_seconds must be >= 0")
+        if self.run.ssr_quiet_window_ms < 0:
+            raise ValueError("run.ssr_quiet_window_ms must be >= 0")
+        if self.run.temp_ramp_max_c_per_sec < 0:
+            raise ValueError("run.temp_ramp_max_c_per_sec must be >= 0")
+        if self.run.temp_ramp_anomaly_window < 1:
+            raise ValueError("run.temp_ramp_anomaly_window must be >= 1")
+        if self.run.temp_ramp_anomaly_max < 0:
+            raise ValueError("run.temp_ramp_anomaly_max must be >= 0")
+        if self.run.loop_watchdog_timeout_seconds < 0:
+            raise ValueError("run.loop_watchdog_timeout_seconds must be >= 0")
+        if self.run.profile_max_temp_c < self.run.profile_min_temp_c:
+            raise ValueError("run.profile_max_temp_c must be >= run.profile_min_temp_c")
+        if self.run.safe_start_min_good_samples < 0:
+            raise ValueError("run.safe_start_min_good_samples must be >= 0")
+        if self.run.safe_start_timeout_seconds < 0:
+            raise ValueError("run.safe_start_timeout_seconds must be >= 0")
         if self.run.pid_control_window <= 0:
             raise ValueError("run.pid_control_window must be > 0")
         if self.run.throttle_percent < 0 or self.run.throttle_percent > 100:
@@ -346,6 +374,16 @@ class AppConfig:
                 backlog_max_points=int(run_cfg.get("backlog_max_points", 5000)),
                 backlog_older_window_seconds=float(run_cfg.get("backlog_older_window_seconds", 7200)),
                 backlog_older_sample_seconds=float(run_cfg.get("backlog_older_sample_seconds", 30)),
+                sensor_stale_timeout_seconds=float(run_cfg.get("sensor_stale_timeout_seconds", 30)),
+                ssr_quiet_window_ms=float(run_cfg.get("ssr_quiet_window_ms", 100)),
+                temp_ramp_max_c_per_sec=float(run_cfg.get("temp_ramp_max_c_per_sec", 2.0)),
+                temp_ramp_anomaly_window=int(run_cfg.get("temp_ramp_anomaly_window", 30)),
+                temp_ramp_anomaly_max=int(run_cfg.get("temp_ramp_anomaly_max", 5)),
+                loop_watchdog_timeout_seconds=float(run_cfg.get("loop_watchdog_timeout_seconds", 10)),
+                profile_min_temp_c=float(run_cfg.get("profile_min_temp_c", 0)),
+                profile_max_temp_c=float(run_cfg.get("profile_max_temp_c", 1300)),
+                safe_start_min_good_samples=int(run_cfg.get("safe_start_min_good_samples", 3)),
+                safe_start_timeout_seconds=float(run_cfg.get("safe_start_timeout_seconds", 30)),
                 temp_scale=run_cfg.get("temp_scale", "f"),
                 time_scale_slope=run_cfg.get("time_scale_slope", "h"),
                 time_scale_profile=run_cfg.get("time_scale_profile", "m"),

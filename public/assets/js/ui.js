@@ -224,6 +224,22 @@ function showNotice(kind, message) {
     });
 }
 
+function formatAbortReason(reason) {
+    var labels = {
+        "sensor_ramp_anomaly": "Sensor ramp anomaly",
+        "sensor_stale": "Thermocouple stopped reporting",
+        "loop_stalled": "Control loop stalled",
+        "heater_error": "Heater control error",
+        "safe_start_timeout": "Safe start timeout",
+        "emergency": "Emergency stop",
+        "aborted": "Aborted"
+    };
+    if (labels[reason]) {
+        return labels[reason];
+    }
+    return reason.replace(/_/g, " ");
+}
+
 var protocol = 'ws:';
 if (window.location.protocol == 'https:') {
     protocol = 'wss:';
@@ -569,6 +585,15 @@ function toggleLive()
 function saveProfile()
 {
     name = $('#form_profile_name').val();
+    name = name.trim();
+    if (!name) {
+        showNotice('error', "<b>Profile name required:</b> enter a name before saving.");
+        return;
+    }
+    if (/[\\/]/.test(name)) {
+        showNotice('error', "<b>Invalid profile name:</b> slashes are not allowed.");
+        return;
+    }
     var rawdata = graph.plot.getData()[0].data
     var data = [];
     var last = -1;
@@ -786,16 +811,29 @@ $(document).ready(function()
 			console.log(state);
                         $('#target_temp').html('---');
                         updateProgress(0);
-                        $.bootstrapGrowl("<span class=\"glyphicon glyphicon-exclamation-sign\"></span> <b>Run completed</b>", {
-                        ele: 'body', // which element to append to
-                        type: 'success', // (null, 'info', 'error', 'success')
-                        offset: {from: 'top', amount: 250}, // 'top', or 'bottom'
-                        align: 'center', // ('left', 'right', or 'center')
-                        width: 385, // (integer, or 'auto')
-                        delay: 0,
-                        allow_dismiss: true,
-                        stackup_spacing: 10 // spacing between consecutively stacked growls.
-                        });
+                        if (x.abort_reason && x.abort_reason != "completed") {
+                            $.bootstrapGrowl("<span class=\"glyphicon glyphicon-exclamation-sign\"></span> <b>Run aborted:</b> "+formatAbortReason(x.abort_reason), {
+                            ele: 'body', // which element to append to
+                            type: 'error', // (null, 'info', 'error', 'success')
+                            offset: {from: 'top', amount: 250}, // 'top', or 'bottom'
+                            align: 'center', // ('left', 'right', or 'center')
+                            width: 385, // (integer, or 'auto')
+                            delay: 0,
+                            allow_dismiss: true,
+                            stackup_spacing: 10 // spacing between consecutively stacked growls.
+                            });
+                        } else {
+                            $.bootstrapGrowl("<span class=\"glyphicon glyphicon-exclamation-sign\"></span> <b>Run completed</b>", {
+                            ele: 'body', // which element to append to
+                            type: 'success', // (null, 'info', 'error', 'success')
+                            offset: {from: 'top', amount: 250}, // 'top', or 'bottom'
+                            align: 'center', // ('left', 'right', or 'center')
+                            width: 385, // (integer, or 'auto')
+                            delay: 0,
+                            allow_dismiss: true,
+                            stackup_spacing: 10 // spacing between consecutively stacked growls.
+                            });
+                        }
                     }
                 }
 
@@ -935,6 +973,9 @@ $(document).ready(function()
             {
                 if(message.resp == "FAIL")
                 {
+                    if (message.error) {
+                        showNotice('error', "<b>Profile save failed:</b> " + message.error);
+                    }
                     if (confirm('Overwrite?'))
                     {
                         message.force=true;

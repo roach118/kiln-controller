@@ -117,9 +117,14 @@ def handle_api():
 
         # FIXME juggling of json should happen in the Profile class
         profile_json = json.dumps(profile)
-        profile = Profile(profile_json)
+        try:
+            profile = Profile(profile_json)
+        except ValueError as exc:
+            log.error("profile validation failed: %s", exc)
+            return { "success": False, "error": str(exc) }
         oven.run_profile(profile, startat=startat, allow_seek=allow_seek)
         ovenWatcher.record(profile)
+        return { "success": True }
 
     if bottle.request.json['cmd'] == 'pause':
         log.info("api pause command received")
@@ -248,7 +253,12 @@ def handle_control():
                     profile_obj = msgdict.get('profile')
                     if profile_obj:
                         profile_json = json.dumps(profile_obj)
-                        profile = Profile(profile_json)
+                        try:
+                            profile = Profile(profile_json)
+                        except ValueError as exc:
+                            log.error("profile validation failed: %s", exc)
+                            wsock.send(json.dumps({"resp": "FAIL", "error": str(exc)}))
+                            continue
                     else:
                         log.error("RUN command missing profile")
                         continue
@@ -327,10 +337,13 @@ def handle_storage():
                 force = True
                 if profile_obj:
                     #del msgdict["cmd"]
-                    if save_profile(profile_obj, force):
+                    ok, err = save_profile(profile_obj, force)
+                    if ok:
                         msgdict["resp"] = "OK"
                     else:
                         msgdict["resp"] = "FAIL"
+                        if err:
+                            msgdict["error"] = err
                     log.debug("websocket (storage) sent: %s" % message)
 
                     wsock.send(json.dumps(msgdict))
@@ -384,16 +397,24 @@ def get_profiles():
 
 def save_profile(profile, force=False):
     profile_json = json.dumps(profile)
+    try:
+        Profile(profile_json)
+    except ValueError as exc:
+        log.error("profile validation failed: %s", exc)
+        return False, str(exc)
     filename = profile['name']+".json"
+    if "/" in filename or "\\" in filename:
+        log.error("profile name contains path separators")
+        return False, "profile name contains invalid characters"
     filepath = os.path.join(profile_path, filename)
     if not force and os.path.exists(filepath):
         log.error("Could not write, %s already exists" % filepath)
-        return False
+        return False, "profile already exists"
     with open(filepath, 'w+') as f:
         f.write(profile_json)
         f.close()
     log.info("Wrote %s" % filepath)
-    return True
+    return True, None
 
 def delete_profile(profile):
     profile_json = json.dumps(profile)

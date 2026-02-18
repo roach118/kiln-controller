@@ -52,7 +52,7 @@ ignore_tc_too_many_errors = false
 [run] # CONFIG.run
 # If kiln is already hot, skip ahead to the first matching point in the profile.
 seek_start = true
-# Duty cycle in seconds.
+# Duty cycle in seconds (longer values increase reaction time to safety events).
 sensor_time_wait = 2
 # Pause profile progression until temperature catches up.
 kiln_must_catch_up = true
@@ -68,6 +68,26 @@ backlog_max_points = 5000
 backlog_older_window_seconds = 7200
 # Downsample older points to this interval (seconds).
 backlog_older_sample_seconds = 30
+# Abort a run if the thermocouple stops reporting (seconds). Set 0 to disable.
+sensor_stale_timeout_seconds = 30
+# Ignore thermocouple reads near SSR state changes (milliseconds). Set 0 to disable.
+ssr_quiet_window_ms = 100
+# Maximum allowed temperature ramp rate (deg C/sec). Set 0 to disable filtering.
+temp_ramp_max_c_per_sec = 2.0
+# Number of recent samples used to count ramp anomalies.
+temp_ramp_anomaly_window = 30
+# Max ramp anomalies allowed within the window before aborting.
+temp_ramp_anomaly_max = 5
+# Abort if the control loop stalls for this many seconds. Set 0 to disable.
+loop_watchdog_timeout_seconds = 10
+# Reject profiles with temperatures below this value (deg C).
+profile_min_temp_c = 0
+# Reject profiles with temperatures above this value (deg C).
+profile_max_temp_c = 1300
+# Require this many consecutive good samples before enabling heat. Set 0 to disable.
+safe_start_min_good_samples = 3
+# Abort if safe startup does not succeed within this many seconds. Set 0 to disable.
+safe_start_timeout_seconds = 30
 # Temperature display unit for the UI only (internal is always C).
 temp_scale = "c"
 # Slope display time base: s, m, or h.
