@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 
-import websocket
-import json
-import time
-import csv
 import argparse
+import csv
+import json
 import sys
+import time
+from typing import Any, Dict, List
+
+import websocket
 
 
-STD_HEADER = [
+STD_HEADER: List[str] = [
     'stamp',
     'runtime',
     'temperature',
@@ -17,10 +19,11 @@ STD_HEADER = [
     'heat',
     'totaltime',
     'profile',
+    'abort_reason',
 ]
 
 
-PID_HEADER = [
+PID_HEADER: List[str] = [
     'pid_time',
     'pid_timeDelta',
     'pid_setpoint',
@@ -38,10 +41,11 @@ PID_HEADER = [
 ]
 
 
-def logger(hostname, csvfile, noprofilestats, pidstats, stdout):
+def logger(hostname: str, csvfile: str, noprofilestats: bool, pidstats: bool, stdout: bool) -> None:
+    """Stream /status websocket data into a CSV file (optionally to stdout)."""
     status_ws = websocket.WebSocket()
 
-    csv_fields = []
+    csv_fields: List[str] = []
     if not noprofilestats:
         csv_fields += STD_HEADER
     if pidstats:
@@ -59,9 +63,10 @@ def logger(hostname, csvfile, noprofilestats, pidstats, stdout):
 
     while True:
         try:
-            msg = json.loads(status_ws.recv())
+            msg: Dict[str, Any] = json.loads(status_ws.recv())
 
         except websocket.WebSocketException:
+            # Reconnect on websocket errors to keep the logger running.
             try:
                 status_ws.connect(f'ws://{hostname}/status')
             except Exception:

@@ -6,6 +6,7 @@ import sys
 import logging
 import json
 import subprocess
+import fcntl
 
 import bottle
 import gevent
@@ -26,6 +27,26 @@ log.info("Starting kiln controller")
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, script_dir + '/lib/')
 profile_path = CONFIG.profiles.kiln_profiles_directory
+
+_lock_handle = None
+
+
+def acquire_lock():
+    global _lock_handle
+    lock_path = CONFIG.server.lock_file
+    lock_dir = os.path.dirname(lock_path)
+    if lock_dir:
+        os.makedirs(lock_dir, exist_ok=True)
+    _lock_handle = open(lock_path, "a+")
+    try:
+        fcntl.flock(_lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        log.error("kiln controller already running (lock: %s)", lock_path)
+        sys.exit(1)
+    _lock_handle.seek(0)
+    _lock_handle.truncate()
+    _lock_handle.write(str(os.getpid()))
+    _lock_handle.flush()
 
 from oven import SimulatedOven, RealOven, Profile
 from ovenWatcher import OvenWatcher
@@ -96,6 +117,8 @@ def handle_api():
     if bottle.request.json['cmd'] == 'run':
         if not validate_pin(bottle.request.json.get('pin')):
             return { "success" : False, "error" : "invalid pin" }
+        if oven.state in ("RUNNING", "PAUSED"):
+            return { "success" : False, "error" : "kiln already running" }
         wanted = bottle.request.json['profile']
         log.info('api requested run of profile = %s' % wanted)
 
@@ -249,6 +272,9 @@ def handle_control():
                     log.info("RUN command received")
                     if not validate_pin(msgdict.get("pin")):
                         wsock.send(json.dumps({"resp": "FAIL", "error": "invalid pin"}))
+                        continue
+                    if oven.state in ("RUNNING", "PAUSED"):
+                        wsock.send(json.dumps({"resp": "FAIL", "error": "kiln already running"}))
                         continue
                     profile_obj = msgdict.get('profile')
                     if profile_obj:
@@ -432,6 +458,7 @@ def get_config():
         "currency_type": CONFIG.cost.currency_type})    
 
 def main():
+    acquire_lock()
     ip = "0.0.0.0"
     port = CONFIG.server.listening_port
     log.info("listening on %s:%d" % (ip, port))

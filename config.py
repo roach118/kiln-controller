@@ -86,6 +86,7 @@ class LoggingConfig:
 @dataclass
 class ServerConfig:
     listening_port: int
+    lock_file: str
 
 
 @dataclass
@@ -340,6 +341,10 @@ class AppConfig:
             ),
             server=ServerConfig(
                 listening_port=int(server_cfg.get("listening_port", 8081)),
+                lock_file=_resolve_path(
+                    base_dir,
+                    server_cfg.get("lock_file", "storage/kiln-controller.lock"),
+                ),
             ),
             cost=CostConfig(
                 kwh_rate=float(cost_cfg.get("kwh_rate", 0.0)),

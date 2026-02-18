@@ -7,6 +7,8 @@ format = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 [server] # CONFIG.server
 # Web UI and websocket port.
 listening_port = 8081
+# Lock file to prevent multiple controller instances.
+lock_file = "storage/kiln-controller.lock"
 
 [cost] # CONFIG.cost
 # Cost per kWh for energy estimates.

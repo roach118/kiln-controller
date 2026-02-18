@@ -16,11 +16,13 @@ class HistoryLogger:
         self.handle = None
         self.last_tick_time = 0.0
 
-    def _safe_name(self, value):
+    @staticmethod
+    def _safe_name(value):
         safe = re.sub(r"[^a-zA-Z0-9._-]+", "_", value.strip())
         return safe.strip("_") or "run"
 
-    def _timestamp(self):
+    @staticmethod
+    def _timestamp():
         return datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     def _write(self, payload):
@@ -32,11 +34,15 @@ class HistoryLogger:
     def start_run(self, profile, startat, config_snapshot):
         if not self.config.history.enabled:
             return
+        # calling this will clear the state in case anything is stale
         self.end_run("restart")
+
         os.makedirs(self.config.history.directory, exist_ok=True)
         timestamp = self._timestamp()
         profile_name = self._safe_name(profile.name)
+
         self.run_id = f"{timestamp}_{profile_name}"
+
         filename = f"{self.run_id}.jsonl"
         self.filepath = os.path.join(self.config.history.directory, filename)
         self.handle = open(self.filepath, "a", encoding="utf-8")
