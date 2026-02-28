@@ -1,12 +1,26 @@
 #!/usr/bin/env python
 
-import time
 import os
 import sys
+import time
 import logging
 import json
 import subprocess
 import fcntl
+
+def _apply_config_override(argv):
+    if "--config" not in argv:
+        return
+    idx = argv.index("--config")
+    if idx + 1 >= len(argv):
+        print("error: --config requires a path")
+        raise SystemExit(2)
+    # Apply before importing CONFIG so config.py picks up the override.
+    os.environ["KILN_CONFIG"] = argv[idx + 1]
+    del argv[idx:idx + 2]
+
+
+_apply_config_override(sys.argv)
 
 import bottle
 from gevent.pywsgi import WSGIServer

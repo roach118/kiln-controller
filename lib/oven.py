@@ -970,9 +970,7 @@ class RealOven(Oven):
     def __init__(self):
         self.board = RealBoard()
         self.output = Output()
-        self.reset()
-
-        # call parent init
+        # call parent init (sets state_lock before reset)
         Oven.__init__(self)
 
         # start thread

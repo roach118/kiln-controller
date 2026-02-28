@@ -2,6 +2,8 @@
 Description=kiln-controller
 
 [Service]
+# Optional: keep config outside the repo so git pulls do not overwrite it.
+# Environment=KILN_CONFIG=/etc/kiln-controller/config.toml
 ExecStart=/home/pi/kiln-controller/venv/bin/python /home/pi/kiln-controller/kiln-controller.py
 
 [Install]
