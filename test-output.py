@@ -1,16 +1,15 @@
 #!/usr/bin/env python
-from config import CONFIG
-import adafruit_max31855
-import digitalio
-import time
 import datetime
+import time
+
+from config import CONFIG
+from lib.oven import Output
 
 try:
     import board
 except NotImplementedError:
     print("not running a recognized blinka board, exiting...")
-    import sys
-    sys.exit()
+    raise SystemExit(1)
 
 ########################################################################
 #
@@ -29,19 +28,22 @@ except NotImplementedError:
 # on your configured pin change.
 ########################################################################
 
-heater = digitalio.DigitalInOut(CONFIG.hardware.gpio_heat)
-heater.direction = digitalio.Direction.OUTPUT
-off = CONFIG.hardware.gpio_heat_invert
-on = not off
+if CONFIG.hardware.gpio_heat is None:
+    print("error: hardware.gpio_heat must be set to test output")
+    raise SystemExit(1)
+
+output = Output()
+off = output.off
+on = output.on
 
 print("\nboard: %s" % (board.board_id))
-print("heater configured as config.gpio_heat = %s BCM pin\n" % (CONFIG.hardware.gpio_heat))
+print("heater configured as hardware.gpio_heat = %s\n" % (CONFIG.hardware.gpio_heat))
 print("heater output pin configured as invert = %r\n" % (CONFIG.hardware.gpio_heat_invert))
 
 while True:
-    heater.value = on
+    output.set_output(on)
     print("%s heater on" % datetime.datetime.now())
     time.sleep(5)
-    heater.value = off
+    output.set_output(off)
     print("%s heater off" % datetime.datetime.now())
     time.sleep(5)
