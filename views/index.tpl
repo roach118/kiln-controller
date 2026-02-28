@@ -25,6 +25,9 @@
 <body>
 
  <div class="container">
+  <div class="page-header">
+   <h2 id="kiln_name">Kiln Controller</h2>
+  </div>
   <div id="status">
    <div class="ds-title-panel">
     <div class="ds-title">Sensor Temp</div>
@@ -38,7 +41,7 @@
     <div class="display ds-num"><span id="act_temp">25</span><span class="ds-unit" id="act_temp_scale" >&deg;C</span></div>
     <div class="display ds-num ds-target"><span id="target_temp">---</span><span class="ds-unit" id="target_temp_scale">&deg;C</span></div>
     <div class="display ds-num ds-heat-rate"><span id="heat_rate">---</span><span class="ds-unit" id="heat_rate_temp_scale">&deg;C</span></div>
-    <div class="display ds-num ds-cost"><span id="cost_value">0.00</span><span class="ds-unit" id="cost_unit"></span></div>
+    <div class="display ds-num ds-cost"><span id="cost_value">0.00</span><span class="ds-unit" id="cost_unit"></span><span class="ds-subunit" id="duty_cycle">DC --%</span></div>
     <div class="display ds-num ds-text" id="state"></div>
     <div class="display pull-right ds-state" style="padding-right:0"><span class="ds-led" id="heat" title="Heating active" data-toggle="tooltip">&#92;</span><span class="ds-led" id="cool" title="Cooling active (placeholder)" data-toggle="tooltip">&#108;</span><span class="ds-led" id="air" title="Air circulation active (placeholder)" data-toggle="tooltip">&#91;</span><span class="ds-led" id="hazard" title="Overheat warning" data-toggle="tooltip">&#73;</span><span class="ds-led" id="door" title="Door open/unknown (placeholder)" data-toggle="tooltip">&#9832;</span></div>
    </div>

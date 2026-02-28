@@ -1,7 +1,10 @@
 import threading,logging,json,time,datetime
 from collections import deque
 from config import CONFIG
-from oven import Oven
+try:
+    from .oven import Oven
+except ImportError:
+    from oven import Oven
 log = logging.getLogger(__name__)
 
 class OvenWatcher(threading.Thread):
@@ -10,6 +13,8 @@ class OvenWatcher(threading.Thread):
         self.last_log = deque(maxlen=CONFIG.run.backlog_max_points)
         self.started = None
         self.recording = False
+        self.last_state = None
+        self.last_profile_name = None
         self.observers = []
         self.observers_lock = threading.Lock()
         threading.Thread.__init__(self)
@@ -28,15 +33,26 @@ class OvenWatcher(threading.Thread):
     def run(self):
         while True:
             oven_state = self.oven.get_state()
-           
+            state = oven_state.get("state")
+            profile_name = oven_state.get("profile")
+
+            if self.last_state != "RUNNING" and state == "RUNNING":
+                self.last_log = deque(maxlen=CONFIG.run.backlog_max_points)
+                self.started = datetime.datetime.now()
+                self.recording = True
+            if self.last_profile_name != profile_name and profile_name:
+                self.last_log = deque(maxlen=CONFIG.run.backlog_max_points)
+                self.started = datetime.datetime.now()
+                self.recording = state == "RUNNING"
+
             # record state for any new clients that join
-            if oven_state.get("state") == "RUNNING":
+            if state == "RUNNING":
                 self.last_log.append(oven_state)
-                if hasattr(self.oven, "history"):
-                    self.oven.history.append_tick(oven_state)
             else:
                 self.recording = False
             self.notify_all(oven_state)
+            self.last_state = state
+            self.last_profile_name = profile_name
             time.sleep(self.oven.time_step)
 
     def lastlog_subset(self,maxpts=50):

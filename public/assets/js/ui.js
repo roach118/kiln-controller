@@ -852,7 +852,7 @@ $(document).ready(function()
                     updateProgress(parseFloat(x.runtime)/parseFloat(x.totaltime)*100);
                     $('#state').html('<span class="glyphicon glyphicon-time" style="font-size: 22px; font-weight: normal"></span><span style="font-family: Digi; font-size: 40px;">' + eta + '</span>');
                     $('#target_temp').html(parseInt(toDisplayTemp(x.target)));
-    $('#cost_value').html(x.currency_type + parseFloat(x.cost).toFixed(2));
+                    $('#cost_value').html(x.currency_type + parseFloat(x.cost).toFixed(2));
                   
 
 
@@ -863,6 +863,7 @@ $(document).ready(function()
                     $("#nav_stop").hide();
                     $("#nav_shutdown").toggle(state == "IDLE" && shutdown_ready);
                     $('#state').html('<p class="ds-text">'+state+'</p>');
+                    $('#duty_cycle').html('DC --%');
                 }
 
                 $('#act_temp').html(parseInt(toDisplayTemp(x.temperature)));
@@ -873,6 +874,10 @@ $(document).ready(function()
                 if (typeof x.pidstats !== 'undefined') {
                     $('#heat').html('<div class="bar" style="height:'+x.pidstats.out*70+'%;"></div>')
                     }
+                if (typeof x.heat_seconds === 'number' && x.runtime > 0) {
+                    var duty = Math.min(100, Math.max(0, (x.heat_seconds / x.runtime) * 100));
+                    $('#duty_cycle').html('DC ' + Math.round(duty) + '%');
+                }
                 if (x.cool > 0.5) { $('#cool').addClass("ds-led-cool-active"); } else { $('#cool').removeClass("ds-led-cool-active"); }
                 if (x.air > 0.5) { $('#air').addClass("ds-led-air-active"); } else { $('#air').removeClass("ds-led-air-active"); }
                 if (toDisplayTemp(x.temperature) > hazardTemp()) { $('#hazard').addClass("ds-led-hazard-active"); } else { $('#hazard').removeClass("ds-led-hazard-active"); }
@@ -899,6 +904,10 @@ $(document).ready(function()
             time_scale_profile = x.time_scale_profile;
             kwh_rate = x.kwh_rate;
             currency_type = x.currency_type;
+            if (x.kiln_name) {
+                $('#kiln_name').text(x.kiln_name);
+                document.title = x.kiln_name + " - Kiln Controller";
+            }
 
             if (temp_scale == "c") {temp_scale_display = "C";} else {temp_scale_display = "F";}
 

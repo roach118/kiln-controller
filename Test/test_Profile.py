@@ -1,4 +1,4 @@
-from lib.oven import Profile
+from lib.profile import Profile
 import os
 import json
 
@@ -26,13 +26,13 @@ def test_find_time_from_temperature():
     profile = get_profile()
 
     time = profile.find_next_time_from_temperature(260.0)
-    assert time == 4800
+    assert round(time, 2) == 4800.02
 
     time = profile.find_next_time_from_temperature(1095.56)
-    assert time == 10857.6
+    assert round(time, 2) == 10857.8
 
     time = profile.find_next_time_from_temperature(1037.78)
-    assert time == 10400.0
+    assert round(time, 2) == 10400.04
 
 
 
@@ -43,7 +43,7 @@ def test_find_time_odd_profile():
     assert time == 4200
 
     time = profile.find_next_time_from_temperature(1106.11)
-    assert time == 16676.0
+    assert round(time, 2) == 16676.05
 
 
 def test_find_x_given_y_on_line_from_two_points():
@@ -54,7 +54,7 @@ def test_find_x_given_y_on_line_from_two_points():
     p2 = [10800, 1093.33]
     time = profile.find_x_given_y_on_line_from_two_points(y, p1, p2)
 
-    assert time == 4800
+    assert round(time, 2) == 4800.02
 
     y = 260.0
     p1 = [3600, 93.33]

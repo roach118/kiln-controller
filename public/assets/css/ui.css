@@ -112,6 +112,14 @@ body {
     margin-left: 4px;
 }
 
+.ds-subunit {
+    font-family: "Arial";
+    font-size: 14px;
+    vertical-align: top;
+    line-height: 18px;
+    margin-left: 4px;
+}
+
 .ds-led {
     font-family: "Tables";
     font-size: 38px;

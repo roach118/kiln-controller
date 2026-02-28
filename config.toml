@@ -10,6 +10,10 @@ listening_port = 8081
 # Lock file to prevent multiple controller instances.
 lock_file = "storage/kiln-controller.lock"
 
+[ui] # CONFIG.ui
+# Friendly name shown on the web UI to distinguish multiple kilns.
+kiln_name = "Kiln Controller"
+
 [cost] # CONFIG.cost
 # Cost per kWh for energy estimates.
 kwh_rate = 0.1319

@@ -20,22 +20,22 @@ After, you're done with the tuning process, just reboot and the kiln-controller 
 
 ## Step 2: Run the Auto-Tuner
 
-run the auto-tuner:
+run the auto-tuner (temperatures are in degrees C):
 ```
 source venv/bin/activate; ./kiln-tuner.py
 ```
 
-The kiln-tuner will heat your kiln to 400F. Next it will start cooling. Once the temperature goes back to 400F, the PID values are calculated and the program ends. The output will look like this:
+The kiln-tuner will heat your kiln to 200C. Next it will start cooling. Once the temperature goes back to 200C, the PID values are calculated and the program ends. The output will look like this:
 
 ```
-stage = cooling, actual = 401.51, target = 400.00
-stage = cooling, actual = 401.26, target = 400.00
-stage = cooling, actual = 401.01, target = 400.00
-stage = cooling, actual = 400.77, target = 400.00
-stage = cooling, actual = 400.52, target = 400.00
-stage = cooling, actual = 400.28, target = 400.00
-stage = cooling, actual = 400.03, target = 400.00
-stage = cooling, actual = 399.78, target = 400.00
+stage = cooling, actual = 201.51, target = 200.00
+stage = cooling, actual = 201.26, target = 200.00
+stage = cooling, actual = 201.01, target = 200.00
+stage = cooling, actual = 200.77, target = 200.00
+stage = cooling, actual = 200.52, target = 200.00
+stage = cooling, actual = 200.28, target = 200.00
+stage = cooling, actual = 200.03, target = 200.00
+stage = cooling, actual = 199.78, target = 200.00
 pid_kp = 14.231158917317776
 pid_ki = 4.745613033146341
 pid_kd = 240.27736881914797
@@ -65,8 +65,8 @@ source venv/bin/activate;./kiln-tuner.py -c -s -d 4
 
 ## Changing the target temperature
 
-By default it is 400F. You can change this as follows:
+By default it is 200C. You can change this as follows:
 
 ```
-python kiln-tuner.py -t 500
+python kiln-tuner.py -t 500  # target temperature in C
 ```

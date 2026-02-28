@@ -1,15 +1,26 @@
 start a run
 
-    curl -d '{"cmd":"run", "profile":"cone-05-long-bisque"}' -H "Content-Type: application/json" -X POST http://0.0.0.0:8081/api
+    curl -d '{"cmd":"run", "profile":"cone-05-long-bisque", "pin":1234}' -H "Content-Type: application/json" -X POST http://0.0.0.0:8081/api
 
 skip the first part of a run
 restart the kiln on a specific profile and start at minute 60
 
-    curl -d '{"cmd":"run", "profile":"cone-05-long-bisque","startat":60}' -H "Content-Type: application/json" -X POST http://0.0.0.0:8081/api
+    curl -d '{"cmd":"run", "profile":"cone-05-long-bisque","startat":60, "pin":1234}' -H "Content-Type: application/json" -X POST http://0.0.0.0:8081/api
 
 stop a schedule
 
     curl -d '{"cmd":"stop"}' -H "Content-Type: application/json" -X POST http://0.0.0.0:8081/api
+
+errors
+
+    If a request fails, the API returns:
+    {"success": false, "error": "<reason>"}
+
+    Common reasons include:
+    - "invalid pin"
+    - "kiln already running"
+    - "profile <name> not found"
+    - profile validation errors (e.g., out-of-range temperatures)
 
 post a memo
 

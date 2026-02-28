@@ -6,6 +6,7 @@ import csv
 import time
 import argparse
 import statistics
+import fcntl
 
 try:
         sys.dont_write_bytecode = True
@@ -21,9 +22,9 @@ except ImportError:
 def recordprofile(csvfile, targettemp):
 
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    sys.path.insert(0, script_dir + '/lib/')
+    sys.path.insert(0, script_dir)
 
-    from oven import RealOven, SimulatedOven
+    from lib.oven import RealOven, SimulatedOven
 
     # open the file to log data to
     f = open(csvfile, 'w')
@@ -47,7 +48,7 @@ def recordprofile(csvfile, targettemp):
     # We record the temperature every CONFIG.run.sensor_time_wait
     try:
 
-        # heating to target of 400F
+        # heating to target temperature (degrees C)
         temp = 0
         sleepfor = CONFIG.run.sensor_time_wait
         stage = "heating"
@@ -56,14 +57,13 @@ def recordprofile(csvfile, targettemp):
                 oven.heat_then_cool()
             else:
                 oven.output.heat(sleepfor)
-            temp = oven.board.temp_sensor.temperature() + \
-                CONFIG.run.thermocouple_offset
+            temp = oven.board.temp_sensor.temperature() + CONFIG.run.thermocouple_offset
             
             print("stage = %s, actual = %.2f, target = %.2f" % (stage,temp,targettemp))
             csvout.writerow([time.time(), temp])
             f.flush()
 
-        # overshoot past target of 400F and then cooling down to 400F
+        # overshoot past target and then cooling down to target
         stage = "cooling"
         if CONFIG.simulation.simulate:
             oven.target = 0
@@ -72,8 +72,7 @@ def recordprofile(csvfile, targettemp):
                 oven.heat_then_cool()
             else:
                 oven.output.cool(sleepfor)
-            temp = oven.board.temp_sensor.temperature() + \
-                CONFIG.run.thermocouple_offset
+            temp = oven.board.temp_sensor.temperature() + CONFIG.run.thermocouple_offset
             
             print("stage = %s, actual = %.2f, target = %.2f" % (stage,temp,targettemp))
             csvout.writerow([time.time(), temp])
@@ -223,7 +222,7 @@ def calculate(filename, tangentdivisor, showplot):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Kiln tuner')
     parser.add_argument('-c', '--calculate_only', action='store_true')
-    parser.add_argument('-t', '--target_temp', type=float, default=400, help="Target temperature")
+    parser.add_argument('-t', '--target_temp', type=float, default=200, help="Target temperature (degrees C, default 200C)")
     parser.add_argument('-d', '--tangent_divisor', type=float, default=8, help="Adjust the tangent calculation to fit better. Must be >= 2 (default 8).")
     parser.add_argument('-s', '--showplot', action='store_true', help="draw plot so you can see tanget line and possibly change")
     args = parser.parse_args()
@@ -237,5 +236,15 @@ if __name__ == "__main__":
     if args.calculate_only:
         calculate(csvfile, tangentdivisor, args.showplot)
     else:
+        lock_path = CONFIG.server.lock_file
+        lock_dir = os.path.dirname(lock_path)
+        if lock_dir:
+            os.makedirs(lock_dir, exist_ok=True)
+        lock_handle = open(lock_path, "a+")
+        try:
+            fcntl.flock(lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print("kiln controller already running, stop it before tuning")
+            sys.exit(1)
         recordprofile(csvfile, target)
         calculate(csvfile, tangentdivisor, args.showplot)

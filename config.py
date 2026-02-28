@@ -212,6 +212,11 @@ class SafetyConfig:
 
 
 @dataclass
+class UiConfig:
+    kiln_name: str
+
+
+@dataclass
 class AppConfig:
     logging: LoggingConfig
     server: ServerConfig
@@ -226,6 +231,7 @@ class AppConfig:
     security: SecurityConfig
     history: HistoryConfig
     safety: SafetyConfig
+    ui: UiConfig
 
     def __post_init__(self):
         missing = []
@@ -292,6 +298,7 @@ class AppConfig:
         history_cfg = data.get("history", {})
         security_cfg = data.get("security", {})
         safety_cfg = data.get("safety", {})
+        ui_cfg = data.get("ui", {})
 
         model = thermocouple_cfg.get("model", "max31855").lower()
         max31855 = model == "max31855"
@@ -447,6 +454,9 @@ class AppConfig:
                 heating_stall_min_heater_output=float(safety_cfg.get("heating_stall_min_heater_output", 0.7)),
                 heating_stall_min_target_delta=float(safety_cfg.get("heating_stall_min_target_delta", 5.0)),
                 ignore_heating_stall=bool(safety_cfg.get("ignore_heating_stall", False)),
+            ),
+            ui=UiConfig(
+                kiln_name=str(ui_cfg.get("kiln_name", "Kiln Controller")),
             ),
         )
 
